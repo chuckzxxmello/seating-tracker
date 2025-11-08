@@ -1,4 +1,4 @@
-import { firestore } from "./firebase"
+import { firestore, isFirebaseInitialized } from "./firebase"
 import {
   collection,
   query,
@@ -50,10 +50,19 @@ function convertTimestamps(data: any): any {
   return converted
 }
 
+const ensureFirebaseInitialized = () => {
+  if (!firestore) {
+    throw new Error(
+      "Firebase is not initialized. Please configure Firebase environment variables in your Vercel project settings.",
+    )
+  }
+}
+
 // Attendee operations
 export async function getAttendees(): Promise<Attendee[]> {
   try {
-    const q = query(collection(firestore, "attendees"), orderBy("createdAt", "desc"))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"), orderBy("createdAt", "desc"))
     const snapshot = await getDocs(q)
     return snapshot.docs.map((doc) => ({
       id: doc.id,
@@ -67,7 +76,8 @@ export async function getAttendees(): Promise<Attendee[]> {
 
 export async function searchAttendees(searchTerm: string): Promise<Attendee[]> {
   try {
-    const q = query(collection(firestore, "attendees"))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
     const allAttendees = snapshot.docs.map((doc) => ({
       id: doc.id,
@@ -86,7 +96,8 @@ export async function searchAttendees(searchTerm: string): Promise<Attendee[]> {
 
 export async function getAttendeeByTicket(ticketNumber: string): Promise<Attendee | null> {
   try {
-    const q = query(collection(firestore, "attendees"), where("ticketNumber", "==", ticketNumber.toUpperCase()))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"), where("ticketNumber", "==", ticketNumber.toUpperCase()))
     const snapshot = await getDocs(q)
     if (snapshot.empty) return null
 
@@ -103,9 +114,10 @@ export async function getAttendeeByTicket(ticketNumber: string): Promise<Attende
 
 export async function createAttendee(attendeeData: Omit<Attendee, "id" | "createdAt" | "updatedAt">): Promise<string> {
   try {
+    ensureFirebaseInitialized()
     const cleanData = Object.fromEntries(Object.entries(attendeeData).filter(([, value]) => value !== undefined))
 
-    const docRef = await addDoc(collection(firestore, "attendees"), {
+    const docRef = await addDoc(collection(firestore!, "attendees"), {
       ...cleanData,
       ticketNumber: cleanData.ticketNumber.toUpperCase(),
       createdAt: Timestamp.now(),
@@ -120,7 +132,8 @@ export async function createAttendee(attendeeData: Omit<Attendee, "id" | "create
 
 export async function updateAttendee(id: string, updates: Partial<Omit<Attendee, "id" | "createdAt">>): Promise<void> {
   try {
-    const docRef = doc(firestore, "attendees", id)
+    ensureFirebaseInitialized()
+    const docRef = doc(firestore!, "attendees", id)
     await updateDoc(docRef, {
       ...updates,
       updatedAt: Timestamp.now(),
@@ -133,7 +146,8 @@ export async function updateAttendee(id: string, updates: Partial<Omit<Attendee,
 
 export async function deleteAttendee(id: string): Promise<void> {
   try {
-    const docRef = doc(firestore, "attendees", id)
+    ensureFirebaseInitialized()
+    const docRef = doc(firestore!, "attendees", id)
     await deleteDoc(docRef)
   } catch (error) {
     console.error("[v0] Error deleting attendee:", error)
@@ -144,7 +158,8 @@ export async function deleteAttendee(id: string): Promise<void> {
 // Check-in operations
 export async function checkInAttendee(id: string): Promise<void> {
   try {
-    const docRef = doc(firestore, "attendees", id)
+    ensureFirebaseInitialized()
+    const docRef = doc(firestore!, "attendees", id)
     await updateDoc(docRef, {
       checkedIn: true,
       checkedInTime: Timestamp.now(),
@@ -158,7 +173,8 @@ export async function checkInAttendee(id: string): Promise<void> {
 
 export async function cancelCheckIn(id: string): Promise<void> {
   try {
-    const docRef = doc(firestore, "attendees", id)
+    ensureFirebaseInitialized()
+    const docRef = doc(firestore!, "attendees", id)
     await updateDoc(docRef, {
       checkedIn: false,
       checkedInTime: null,
@@ -174,7 +190,8 @@ export async function cancelCheckIn(id: string): Promise<void> {
 // Seat operations
 export async function getSeatInfo(seatNumber: number): Promise<SeatInfo | null> {
   try {
-    const docRef = doc(firestore, "seats", String(seatNumber))
+    ensureFirebaseInitialized()
+    const docRef = doc(firestore!, "seats", String(seatNumber))
     const snapshot = await getDoc(docRef)
     if (!snapshot.exists()) return null
 
@@ -199,7 +216,8 @@ export async function checkTableCapacity(
   isFull: boolean
 }> {
   try {
-    const q = query(collection(firestore, "attendees"), where("assignedSeat", "==", tableNumber))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"), where("assignedSeat", "==", tableNumber))
     const snapshot = await getDocs(q)
 
     const maxCapacity = isVIP ? 30 : 10
@@ -220,14 +238,15 @@ export async function checkTableCapacity(
 
 export async function assignSeatToAttendee(attendeeId: string, tableNumber: number, isVIP: boolean): Promise<void> {
   try {
+    ensureFirebaseInitialized()
     const capacity = await checkTableCapacity(tableNumber, isVIP)
     if (capacity.isFull) {
       throw new Error(`Table ${tableNumber} is at full capacity (${capacity.max}/${capacity.max} seats occupied)`)
     }
 
-    const batch = writeBatch(firestore)
+    const batch = writeBatch(firestore!)
 
-    const attendeeRef = doc(firestore, "attendees", attendeeId)
+    const attendeeRef = doc(firestore!, "attendees", attendeeId)
     batch.update(attendeeRef, {
       table: tableNumber,
       tableCapacity: isVIP ? 30 : 10,
@@ -251,7 +270,8 @@ export async function logAudit(
   details: any,
 ): Promise<void> {
   try {
-    await addDoc(collection(firestore, "auditLogs"), {
+    ensureFirebaseInitialized()
+    await addDoc(collection(firestore!, "auditLogs"), {
       action,
       performedBy,
       targetTicketNumber,
@@ -277,14 +297,15 @@ export async function batchImportAttendees(
   }>,
 ): Promise<{ successful: number; failed: number; errors: string[] }> {
   try {
-    const batch = writeBatch(firestore)
+    ensureFirebaseInitialized()
+    const batch = writeBatch(firestore!)
     const errors: string[] = []
     let successful = 0
     let failed = 0
 
     for (const attendee of attendeesList) {
       try {
-        const docRef = doc(firestore, "attendees", attendee.ticketNumber.toUpperCase())
+        const docRef = doc(firestore!, "attendees", attendee.ticketNumber.toUpperCase())
 
         batch.set(docRef, {
           ticketNumber: attendee.ticketNumber.toUpperCase(),
@@ -322,7 +343,8 @@ export async function getCheckInStats(): Promise<{
   checkInPercentage: number
 }> {
   try {
-    const q = query(collection(firestore, "attendees"))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
     const attendees = snapshot.docs.map((doc) => doc.data())
 
@@ -340,7 +362,8 @@ export async function getCheckInStats(): Promise<{
 
 export async function getRegionDistribution(): Promise<Record<string, number>> {
   try {
-    const q = query(collection(firestore, "attendees"))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
     const distribution: Record<string, number> = {
       Luzon: 0,
@@ -365,7 +388,8 @@ export async function getRegionDistribution(): Promise<Record<string, number>> {
 
 export async function getCategoryDistribution(): Promise<Record<string, number>> {
   try {
-    const q = query(collection(firestore, "attendees"))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
     const distribution: Record<string, number> = {}
 
@@ -383,7 +407,8 @@ export async function getCategoryDistribution(): Promise<Record<string, number>>
 
 export async function getNoShowsCount(): Promise<number> {
   try {
-    const q = query(collection(firestore, "attendees"), where("checkedIn", "==", false))
+    ensureFirebaseInitialized()
+    const q = query(collection(firestore!, "attendees"), where("checkedIn", "==", false))
     const snapshot = await getDocs(q)
     return snapshot.size
   } catch (error) {
@@ -391,3 +416,5 @@ export async function getNoShowsCount(): Promise<number> {
     throw error
   }
 }
+
+export { isFirebaseInitialized }
