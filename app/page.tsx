@@ -192,8 +192,16 @@ export default function CheckinPage() {
           <Card className="bg-card border border-border p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-base md:text-lg font-semibold leading-tight">
-                Venue Map – Seat {selectedAttendee.assignedSeat || "TBD"}
+                Venue Map
               </h2>
+              <p className="text-xs md:text-sm bg-muted text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
+              Your assigned seat is{" "}
+              <strong className="text-primary">
+                Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
+              </strong>
+              . Look for the highlighted table with the orange circle on the
+              map above.
+            </p>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {!selectedAttendee.checkedIn ? (
 
@@ -235,14 +243,7 @@ export default function CheckinPage() {
               </div>
             )}
 
-            <p className="text-xs md:text-sm bg-muted text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
-              Your assigned seat is{" "}
-              <strong className="text-primary">
-                Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
-              </strong>
-              . Look for the highlighted table with the orange circle on the
-              map above.
-            </p>
+            
           </Card>
         )}
       </main>
