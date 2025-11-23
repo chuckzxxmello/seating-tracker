@@ -13,7 +13,7 @@ const philosopher = Philosopher({
 })
 
 export const metadata: Metadata = {
-  title: "Seating Tracker",
+  title: "Legacy Night - Seating Tracker",
   description: "Event Management System",
   icons: {
     icon: "/favicon.ico",
