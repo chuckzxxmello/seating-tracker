@@ -146,7 +146,7 @@ export default function CheckinPage() {
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
         
               <Image
-              src="/images/LGN.png"
+              src="/images/home-mark.png"
               alt="Logo"
               width={60}
               height={60}
