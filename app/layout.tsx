@@ -15,6 +15,12 @@ const philosopher = Philosopher({
 export const metadata: Metadata = {
   title: "Seating Tracker",
   description: "Event Management System",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-32x32.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 }
 
 export default function RootLayout({
