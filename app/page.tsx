@@ -161,10 +161,10 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Find Attendee card (dark, like your design) */}
+        {/* Find Your Seat card (dark, like your design) */}
         <Card className="bg-card border border-border p-4 md:p-8 shadow-sm">
           <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">
-            Find Attendee
+            Find Your Seat
           </h2>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
