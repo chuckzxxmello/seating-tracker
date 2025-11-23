@@ -1,122 +1,132 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-
-
-@custom-variant dark (&:is(.dark *));
+/* 1. Core palette: dark navy + neon blue */
 
 :root {
-  --background: #000815;
-  --foreground: #84A5B6;
+  /* Base background – dark navy, but not pure black */
+  --background: oklch(0.13 0.05 260);
+  --foreground: oklch(0.96 0.01 260);
 
-  --card: #01152D;
-  --card-foreground: #84A5B6;
+  --card: oklch(0.16 0.04 260);              /* slightly lighter than bg */
+  --card-foreground: var(--foreground);
 
-  --popover: #01152D;
-  --popover-foreground: #84A5B6;
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
 
-  --primary: #1165A3;
-  --primary-foreground: #000815;
+  /* Neon-ish blue “beam” color */
+  --primary: oklch(0.68 0.23 255);
+  --primary-foreground: oklch(0.16 0.04 260);
 
-  --secondary: #022B66;
-  --secondary-foreground: #84A5B6;
+  --secondary: oklch(0.19 0.04 260);
+  --secondary-foreground: var(--foreground);
 
-  --muted: #022B66;
-  --muted-foreground: #84A5B6;
+  --muted: oklch(0.18 0.03 260);
+  --muted-foreground: oklch(0.7 0.02 260);
 
-  --accent: #84A5B6;
-  --accent-foreground: #000815;
+  --accent: oklch(0.72 0.22 255);
+  --accent-foreground: oklch(0.12 0.04 260);
 
-  --destructive: #8b1a1a;
-  --destructive-foreground: #fff;
-
-  --border: #022B66;
-  --input: #01152D;
-  --ring: #1165A3;
-
-  --chart-1: #1165A3;
-  --chart-2: #022B66;
-  --chart-3: #84A5B6;
-  --chart-4: #01152D;
-  --chart-5: #1d79c4;
-
-  --sidebar: #01152D;
-  --sidebar-foreground: #84A5B6;
-  --sidebar-primary: #1165A3;
-  --sidebar-primary-foreground: #000815;
-  --sidebar-accent: #022B66;
-  --sidebar-accent-foreground: #84A5B6;
-  --sidebar-border: #022B66;
-  --sidebar-ring: #1165A3;
-}
-
-/* Dark palette when .dark is on html */
-.dark {
-  --background: oklch(0.09 0.02 240);
-  --foreground: oklch(0.96 0.01 240);
-  --card: oklch(0.14 0.04 240);
-  --card-foreground: oklch(0.96 0.01 240);
-  --popover: oklch(0.14 0.04 240);
-  --popover-foreground: oklch(0.96 0.01 240);
-  --primary: oklch(0.55 0.22 240);
-  --primary-foreground: oklch(0.14 0.04 240);
-  --secondary: oklch(0.2 0.02 240);
-  --secondary-foreground: oklch(0.96 0.01 240);
-  --muted: oklch(0.28 0.03 240);
-  --muted-foreground: oklch(0.7 0.01 240);
-  --accent: oklch(0.65 0.2 240);
-  --accent-foreground: oklch(0.09 0.02 240);
-  --destructive: oklch(0.396 0.141 25.723);
+  --destructive: oklch(0.55 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.2 0.04 240);
-  --input: oklch(0.12 0.03 240);
-  --ring: oklch(0.55 0.22 240);
-  --chart-1: oklch(0.55 0.22 240);
-  --chart-2: oklch(0.65 0.2 220);
-  --chart-3: oklch(0.6 0.18 250);
-  --chart-4: oklch(0.7 0.18 200);
-  --chart-5: oklch(0.63 0.19 230);
-  --sidebar: oklch(0.14 0.04 240);
-  --sidebar-foreground: oklch(0.96 0.01 240);
-  --sidebar-primary: oklch(0.55 0.22 240);
-  --sidebar-primary-foreground: oklch(0.14 0.04 240);
-  --sidebar-accent: oklch(0.2 0.02 240);
-  --sidebar-accent-foreground: oklch(0.96 0.01 240);
-  --sidebar-border: oklch(0.2 0.04 240);
-  --sidebar-ring: oklch(0.55 0.22 240);
+
+  --border: oklch(0.20 0.04 260);
+  --input: oklch(0.16 0.03 260);
+  --ring: var(--primary);
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.6 0.21 250);
+  --chart-3: oklch(0.62 0.18 230);
+  --chart-4: oklch(0.55 0.18 210);
+  --chart-5: oklch(0.7 0.18 260);
+
+  --sidebar: oklch(0.15 0.04 260);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
 }
+
+/* You’re forcing <html class="dark"> anyway, so keep same palette */
+.dark {
+  --background: oklch(0.13 0.05 260);
+  --foreground: oklch(0.96 0.01 260);
+  --card: oklch(0.16 0.04 260);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.68 0.23 255);
+  --primary-foreground: oklch(0.16 0.04 260);
+  --secondary: oklch(0.19 0.04 260);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.18 0.03 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --accent: oklch(0.72 0.22 255);
+  --accent-foreground: oklch(0.12 0.04 260);
+  --destructive: oklch(0.55 0.19 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.20 0.04 260);
+  --input: oklch(0.16 0.03 260);
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.6 0.21 250);
+  --chart-3: oklch(0.62 0.18 230);
+  --chart-4: oklch(0.55 0.18 210);
+  --chart-5: oklch(0.7 0.18 260);
+  --sidebar: oklch(0.15 0.04 260);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
+}
+
+/* 2. Tell Tailwind v4 how to expose these as utilities like bg-background */
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -127,15 +137,22 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* 3. Base styles – NO @apply of color utilities here */
+
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    color: var(--foreground);
+
+    /* spotlight background */
+    background-image: url("/beam-bg.png");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-attachment: fixed;
   }
 
-  /* Smooth transitions for interactive elements */
   button,
   a,
   input,
@@ -144,7 +161,6 @@
     transition: all 150ms ease-in-out;
   }
 
-  /* Minimal fade-in for page loads */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -154,7 +170,6 @@
     }
   }
 
-  /* Subtle slide-up for cards and modals */
   @keyframes slideUp {
     from {
       opacity: 0;
@@ -166,7 +181,6 @@
     }
   }
 
-  /* Minimal scale for hover effects */
   @keyframes scaleIn {
     from {
       transform: scale(0.95);
@@ -178,7 +192,6 @@
     }
   }
 
-  /* Apply minimal animations to components */
   .animate-fade-in {
     animation: fadeIn 200ms ease-out;
   }
@@ -191,7 +204,6 @@
     animation: scaleIn 150ms ease-out;
   }
 
-  /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
