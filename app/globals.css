@@ -1,316 +1,44 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-
-/* ===========================
-   1. Core palette (navy + neon)
-   =========================== */
-
-:root {
-  /* Base background – dark navy, but not pure black */
-  --background: oklch(0.13 0.05 260);
-  --foreground: oklch(0.96 0.01 260);
-
-  --card: oklch(0.16 0.04 260);              /* slightly lighter than bg */
-  --card-foreground: var(--foreground);
-
-  --popover: var(--card);
-  --popover-foreground: var(--foreground);
-
-  /* Neon-ish beam blue */
-  --primary: oklch(0.68 0.23 255);
-  --primary-foreground: oklch(0.16 0.04 260);
-
-  --secondary: oklch(0.19 0.04 260);
-  --secondary-foreground: var(--foreground);
-
-  --muted: oklch(0.18 0.03 260);
-  --muted-foreground: oklch(0.7 0.02 260);
-
-  --accent: oklch(0.72 0.22 255);
-  --accent-foreground: oklch(0.12 0.04 260);
-
-  --destructive: oklch(0.55 0.19 25);
-  --destructive-foreground: oklch(0.98 0 0);
-
-  --border: oklch(0.20 0.04 260);
-  --input: oklch(0.16 0.03 260);
-  --ring: var(--primary);
-
-  --chart-1: var(--primary);
-  --chart-2: oklch(0.6 0.21 250);
-  --chart-3: oklch(0.62 0.18 230);
-  --chart-4: oklch(0.55 0.18 210);
-  --chart-5: oklch(0.7 0.18 260);
-
-  --sidebar: oklch(0.15 0.04 260);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--primary);
-}
-
-/* If you ever toggle .dark on <html>, keep same palette */
-.dark {
-  --background: oklch(0.13 0.05 260);
-  --foreground: oklch(0.96 0.01 260);
-
-  --card: oklch(0.16 0.04 260);
-  --card-foreground: var(--foreground);
-
-  --popover: var(--card);
-  --popover-foreground: var(--foreground);
-
-  --primary: oklch(0.68 0.23 255);
-  --primary-foreground: oklch(0.16 0.04 260);
-
-  --secondary: oklch(0.19 0.04 260);
-  --secondary-foreground: var(--foreground);
-
-  --muted: oklch(0.18 0.03 260);
-  --muted-foreground: oklch(0.7 0.02 260);
-
-  --accent: oklch(0.72 0.22 255);
-  --accent-foreground: oklch(0.12 0.04 260);
-
-  --destructive: oklch(0.55 0.19 25);
-  --destructive-foreground: oklch(0.98 0 0);
-
-  --border: oklch(0.20 0.04 260);
-  --input: oklch(0.16 0.03 260);
-  --ring: var(--primary);
-
-  --chart-1: var(--primary);
-  --chart-2: oklch(0.6 0.21 250);
-  --chart-3: oklch(0.62 0.18 230);
-  --chart-4: oklch(0.55 0.18 210);
-  --chart-5: oklch(0.7 0.18 260);
-
-  --sidebar: oklch(0.15 0.04 260);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--primary);
-}
-
-/* ===========================
-   2. Tell Tailwind v4 about the tokens
-   =========================== */
-
-@theme inline {
-  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-/* ===========================
-   3. Base styles (no @apply, so no errors)
-   =========================== */
-
-@layer base {
-  body {
-    font-family: var(--font-sans);
-    background-color: var(--background);
-    color: var(--foreground);
-
-    /* spotlight background */
-    background-image: url("/beam-bg.png");
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: top center;
-    background-attachment: fixed;
-  }
-
-  * {
-    border-color: var(--border);
-    outline-color: color-mix(in oklch, var(--ring) 60%, transparent);
-  }
-
-  button,
-  a,
-  input,
-  select,
-  textarea {
-    transition: all 150ms ease-in-out;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  /* Slow cinematic fade from black */
-  @keyframes introFadeFromBlack {
-    0% {
-      opacity: 1;
-    }
-    40% {
-      opacity: 1; /* hold black longer for drama */
-    }
-    100% {
-      opacity: 0;
-    }
-  }
-
-  .page-intro-overlay {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 9999;
-    pointer-events: none;
-    animation: introFadeFromBlack 2.5s ease-out forwards;
-  }
-
-  
-  @layer utilities {
-  .animate-delay-100 { animation-delay: 100ms; }
-  .animate-delay-200 { animation-delay: 200ms; }
-  .animate-delay-300 { animation-delay: 300ms; }
-  }
-
-
-  .page-intro-overlay {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 50;
-    pointer-events: none;
-    animation: introFadeFromBlack 700ms ease-out forwards;
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-
-  .animate-fade-in { animation: fadeIn 200ms ease-out; }
-  .animate-slide-up { animation: slideUp 250ms ease-out; }
-  .animate-scale-in { animation: scaleIn 150ms ease-out; }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-}
-
-/* ===========================
-   4. Global overrides for old “light” classes
-      (so you don’t have to touch components)
-   =========================== */
-
-@layer utilities {
-  /* Any bg-white card becomes a dark card */
-  .bg-white {
-    background-color: var(--card) !important;
-  }
-
-  /* Common text class used in templates */
-  .text-slate-900 {
-    color: var(--foreground) !important;
-  }
-
-  /* If something uses dark:bg-slate-950, keep it close to our bg */
-  .dark .bg-slate-950 {
-    background-color: oklch(0.10 0.04 260) !important;
-  }
-  @layer utilities {
-  /* 1) Kill the light gradient background and make it dark navy */
-
-  .bg-gradient-to-br {
-    background-image: none !important;
-    background-color: var(--background) !important;
-  }
-
-  /* Override gradient color stops (from-blue-50 via-white to-blue-50) */
-  .from-blue-50 {
-    --tw-gradient-from: var(--background) !important;
-  }
-
-  .via-white {
-    --tw-gradient-stops: var(--background) !important;
-  }
-
-  .to-blue-50 {
-    --tw-gradient-to: var(--background) !important;
-  }
-
-  /* 2) Headers: remove white glass look and blue border */
-
-  .bg-white\/80 {
-    /* Tailwind's bg-white/80 → dark card glass */
-    background-color: color-mix(
-      in oklch,
-      var(--card) 90%,
-      transparent
-    ) !important;
-  }
-
-  .border-blue-200 {
-    border-color: var(--border) !important;
-  }
-
-  /* 3) Extra safety: any pure bg-white → card */
-  .bg-white {
-    background-color: var(--card) !important;
-  }
-
-  .text-slate-900 {
-    color: var(--foreground) !important;
-  }
-}
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: "class",
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./pages/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        primary: "var(--primary)",
+        "primary-foreground": "var(--primary-foreground)",
+        secondary: "var(--secondary)",
+        "secondary-foreground": "var(--secondary-foreground)",
+        muted: "var(--muted)",
+        "muted-foreground": "var(--muted-foreground)",
+        accent: "var(--accent)",
+        "accent-foreground": "var(--accent-foreground)",
+        destructive: "var(--destructive)",
+        "destructive-foreground": "var(--destructive-foreground)",
+        "chart-1": "var(--chart-1)",
+        "chart-2": "var(--chart-2)",
+        "chart-3": "var(--chart-3)",
+        "chart-4": "var(--chart-4)",
+        "chart-5": "var(--chart-5)",
+        sidebar: "var(--sidebar)",
+        "sidebar-foreground": "var(--sidebar-foreground)",
+        "sidebar-primary": "var(--sidebar-primary)",
+        "sidebar-primary-foreground": "var(--sidebar-primary-foreground)",
+        "sidebar-accent": "var(--sidebar-accent)",
+        "sidebar-accent-foreground": "var(--sidebar-accent-foreground)",
+        "sidebar-border": "var(--sidebar-border)",
+        "sidebar-ring": "var(--sidebar-ring)",
+      },
+    },
+  },
+  plugins: [],
 }
