@@ -6,8 +6,8 @@ import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geist = Geist({ subsets: ["latin"] })
+const geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Seating Tracker",
@@ -21,8 +21,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
+    // Force dark palette; later you can toggle this with a theme switcher
+    <html lang="en" className="dark">
+      <body
+        className={`${geist.className} antialiased bg-background text-foreground`}
+      >
         <AuthProvider>{children}</AuthProvider>
         <Toaster />
         <Analytics />
