@@ -129,17 +129,6 @@ export default function CheckinPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Sticky header with Admin button top-left */}
       <header className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-4">
-          <Link href="/login">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent flex items-center gap-1 md:gap-2"
-            >
-              Admin Dashboard
-            </Button>
-          </Link>
-        </div>
       </header>
 
       {/* Main content */}
