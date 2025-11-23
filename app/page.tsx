@@ -10,8 +10,8 @@ export default function Home() {
       <header className="border-b border-blue-200 bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Seating Tracker</h1>
-            <p className="text-slate-600 text-sm mt-1">Seating Management System</p>
+            <h1 className="text-3xl font-bold text-slate-900">Legacy Night</h1>
+            <p className="text-slate-600 text-sm mt-1">Beyond the Silver Lining</p>
           </div>
         </div>
       </header>
