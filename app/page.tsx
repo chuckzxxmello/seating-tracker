@@ -152,9 +152,9 @@ export default function CheckinPage() {
 
         {/* Find Your Seat card (dark, like your design) 
         
-        /* <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">
+         <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">
             Find Your Seat
-          </h2> */
+          </h2> 
           
         */}
         <Card className="bg-card border border-border p-4 md:p-8 shadow-sm">
