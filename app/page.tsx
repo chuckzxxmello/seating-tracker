@@ -221,7 +221,7 @@ export default function CheckinPage() {
                   Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
                 </strong>
                 . Look for the highlighted table with the orange circle on the
-                map above.
+                map below.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
