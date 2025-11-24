@@ -54,10 +54,10 @@ export function PathfindingVisualization({
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // tuning
-  const PAN_SPEED = 1.4;
-  const WHEEL_ZOOM_IN = 1.2;
-  const WHEEL_ZOOM_OUT = 0.8;
-  const DOUBLE_TAP_ZOOM = 1.6;
+  const PAN_SPEED = 1.2;
+  const WHEEL_ZOOM_IN = 1.08;   // was 1.2
+  const WHEEL_ZOOM_OUT = 0.92;  // was 0.8
+  const DOUBLE_TAP_ZOOM = 1.15; // was 1.6
 
   // Load venue nodes from Firebase
   useEffect(() => {
