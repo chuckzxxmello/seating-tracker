@@ -390,6 +390,30 @@
     color: color-mix(in oklch, var(--foreground) 80%, var(--background) 20%) !important;
   }
 
+    .bg-red-50 {
+    background-color: oklch(0.22 0.04 30) !important; /* very dark muted red */
+  }
+
+  .hover\:bg-red-100:hover {
+    background-color: oklch(0.28 0.05 30) !important; /* slightly lighter muted red */
+  }
+
+  .border-red-300 {
+    border-color: oklch(0.40 0.06 30) !important;
+  }
+
+  .text-red-600 {
+    color: oklch(0.55 0.14 30) !important; /* muted warm red */
+  }
+
+  .hover\:text-red-600:hover {
+    color: oklch(0.60 0.14 30) !important;
+  }
+
+  .text-red-700, .text-red-800, .text-red-900 {
+    color: oklch(0.50 0.12 30) !important;
+  }
+
   /* Text colors that used to be “dark on white” now become light/primary */
   .text-slate-900,
   .text-slate-800,
