@@ -214,9 +214,6 @@ export default function CheckinPage() {
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h2 className="text-base md:text-lg font-semibold leading-tight">
-                Venue Map
-              </h2>
 
               <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
                 Your assigned seat is{" "}
