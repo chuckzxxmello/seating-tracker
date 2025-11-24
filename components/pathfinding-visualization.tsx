@@ -545,6 +545,9 @@ export function PathfindingVisualization({
       {/* Fullscreen overlay */}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col">
+          <h2 className="text-base md:text-lg font-semibold leading-tight">
+                Venue Map
+              </h2>
           <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
             <h3 className="text-lg font-semibold">
               {isVip ? "VIP " : ""}Seat Number {seatId}
