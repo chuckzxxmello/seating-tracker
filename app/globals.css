@@ -235,8 +235,10 @@
   .dark .bg-slate-950 {
     background-color: oklch(0.10 0.04 260) !important;
   }
-  @layer utilities {
-  /* 1) Kill the light gradient background and make it dark navy */
+  
+   .text-slate-900 {
+    color: var(--foreground) !important;
+  }
 
   .bg-gradient-to-br {
     background-image: none !important;
