@@ -588,7 +588,7 @@ export function PathfindingVisualization({
         {seatId && !error && (
           <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold text-sm md:text-base">
-              Venue Map Not Configured
+              Venue Map
             </h3>
             <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
               <span className="font-semibold text-primary text-base md:text-lg block md:inline mb-1 md:mb-0">
