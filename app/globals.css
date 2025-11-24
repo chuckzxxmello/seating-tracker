@@ -331,6 +331,68 @@
     color: var(--foreground) !important;
   }
 
+   .react-flow__controls-button {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: color-mix(in oklch, var(--card) 80%, var(--primary) 20%) !important;
+  color: var(--foreground) !important;
+}
+
+/* MiniMap Fix */
+.react-flow__minimap {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.react-flow__minimap-node {
+  fill: var(--primary) !important;
+  stroke: var(--primary-foreground) !important;
+}
+
+.react-flow__minimap-mask {
+  fill: var(--background) !important;
+}
+
+.react-flow__minimap-desc-1 {
+  color: var(--foreground) !important;
+}
+
+/* Purple/Blue notification boxes → navy card */
+.bg-purple-50,
+.bg-blue-50,
+.bg-emerald-50 {
+  background-color: var(--card) !important;
+}
+
+.border-purple-200,
+.border-blue-200,
+.border-purple-300 {
+  border-color: var(--border) !important;
+}
+
+/* Fix Gradient Button (“Load Predefined Template”) */
+[data-slot="button"].bg-gradient-to-r {
+  background-color: var(--foreground) !important;
+  color: var(--primary-foreground) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
+}
+
+[data-slot="button"].bg-gradient-to-r:hover {
+  background-color: color-mix(in oklch, var(--foreground) 85%, var(--primary) 15%) !important;
+}
+
+/* Input focus white outline */
+[data-slot="input"]:focus-visible {
+  border-color: var(--foreground) !important;
+  box-shadow: 0 0 0 2px var(--foreground) !important;
+  outline: none !important;
+}
+
   /* Emerald emphasis text (How to use:) → white */
   .text-emerald-900 {
     color: var(--foreground) !important;
