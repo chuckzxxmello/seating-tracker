@@ -162,7 +162,7 @@
     color: var(--foreground);
 
     /* spotlight background */
-    background-image: url("/beam-bg.png");
+   background-image: url("/Background.png");
     background-size: cover;
     background-repeat: no-repeat;
     background-position: top center;
@@ -220,6 +220,10 @@
   /* Any bg-white card becomes a dark card */
   .bg-white {
     background-color: var(--card) !important;
+  }
+
+   .bg-background {
+    background-color: transparent !important;
   }
 
   /* Common text class used in templates */
