@@ -517,9 +517,6 @@ export function PathfindingVisualization({
         <div className="flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
           <div>
-            <h3 className="font-semibold text-sm md:text-base">
-              Venue Map Not Configured
-            </h3>
             <p className="text-xs md:text-sm">
               Please set up the venue map in the admin panel first.
             </p>
@@ -590,6 +587,9 @@ export function PathfindingVisualization({
 
         {seatId && !error && (
           <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
+            <h3 className="font-semibold text-sm md:text-base">
+              Venue Map Not Configured
+            </h3>
             <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
               <span className="font-semibold text-primary text-base md:text-lg block md:inline mb-1 md:mb-0">
                 {isVip ? "VIP " : ""}Seat Number {seatId}
