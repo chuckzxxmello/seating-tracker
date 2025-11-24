@@ -99,7 +99,7 @@
 }
 
 /* ===========================
-   2. Tell Tailwind v4 about the tokens
+   2. Tailwind v4 design tokens
    =========================== */
 
 @theme inline {
@@ -152,7 +152,7 @@
 }
 
 /* ===========================
-   3. Base styles + animations
+   3. Base styles
    =========================== */
 
 @layer base {
@@ -182,102 +182,50 @@
     transition: all 150ms ease-in-out;
   }
 
+  /* Simple animation helpers */
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes scaleIn {
-    from {
-      transform: scale(0.95);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
-    }
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
   }
 
-  /* Hero / page-specific animations */
-  @keyframes heroLogo {
-    0% {
-      opacity: 0;
-      transform: translateY(20px) scale(0.97);
-      filter: blur(4px);
-    }
-    60% {
-      opacity: 1;
-      transform: translateY(0) scale(1.01);
-      filter: blur(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+  @keyframes starTwinkle {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.4; }
   }
 
-  @keyframes heroCard {
-    from {
-      opacity: 0;
-      transform: translateY(24px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+  .animate-fade-in { animation: fadeIn 300ms ease-out both; }
+  .animate-slide-up { animation: slideUp 350ms ease-out both; }
+  .animate-scale-in { animation: scaleIn 220ms ease-out both; }
 
-  @keyframes twinkle {
-    0%,
-    100% {
-      opacity: 0.1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 200ms ease-out;
-  }
-  .animate-slide-up {
-    animation: slideUp 250ms ease-out;
-  }
-  .animate-scale-in {
-    animation: scaleIn 150ms ease-out;
-  }
-
-  .animate-page-fade {
-    animation: fadeIn 600ms ease-out both;
-  }
-
-  .animate-hero-logo {
-    animation: heroLogo 1200ms ease-out both;
-  }
-
-  .animate-hero-card {
-    animation: heroCard 700ms 150ms ease-out both;
+  /* Soft starfield overlay */
+  .starfield::before,
+  .starfield::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(255,255,255,0.35) 0, transparent 50%),
+      radial-gradient(circle at 80% 10%, rgba(120,200,255,0.25) 0, transparent 55%),
+      radial-gradient(circle at 35% 80%, rgba(255,255,255,0.2) 0, transparent 55%);
+    opacity: 0.18;
+    mix-blend-mode: screen;
+    animation: starTwinkle 10s ease-in-out infinite alternate;
+    z-index: -1;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -286,157 +234,176 @@
 }
 
 /* ===========================
-   4. Utilities / overrides
+   4. Utility overrides
    =========================== */
 
 @layer utilities {
-  /* --- general layout/theme helpers --- */
+  /* Generic cards that were white in templates */
+  .bg-white {
+    background-color: var(--card) !important;
+  }
 
   .bg-background {
     background-color: transparent !important;
   }
 
-  /* Soft twinkle overlay (used with a fixed div) */
-  .twinkle-layer {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image:
-      radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.12) 0, transparent 40%),
-      radial-gradient(circle at 75% 15%, rgba(137, 207, 255, 0.15) 0, transparent 45%),
-      radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.1) 0, transparent 40%);
-    mix-blend-mode: screen;
-    animation: twinkle 14s ease-in-out infinite alternate;
-    opacity: 0.25;
-  }
-
-  /* Light navy button (white-ish bg, navy text) */
-  .btn-theme-light {
-    background-color: color-mix(in oklch, var(--foreground) 85%, transparent);
-    color: var(--background);
-    border-radius: 0.5rem;
-    border: 1px solid color-mix(in oklch, var(--foreground) 40%, var(--background) 60%);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  }
-
-  .btn-theme-light:hover {
-    background-color: color-mix(in oklch, var(--foreground) 95%, transparent);
-    transform: translateY(-1px);
-  }
-
-  .btn-theme-light:active {
-    transform: translateY(0);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-  }
-
-  /* --- “light mode” Tailwind utility overrides -> navy theme --- */
-
-  /* Generic card fixes */
-  .bg-white {
-    background-color: var(--card) !important;
-  }
-
-  .bg-slate-50,
-  .bg-slate-100,
-  .bg-emerald-50,
-  .bg-blue-50,
-  .bg-purple-50 {
-    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
-  }
-
   .border-slate-200,
-  .border-emerald-200,
   .border-blue-200,
   .border-purple-200,
+  .border-emerald-200,
   .border-purple-300 {
     border-color: var(--border) !important;
   }
 
-  /* Table rows hover bg */
-  .hover\:bg-slate-50:hover {
-    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
-  }
-
-  /* Footer bar: bg-slate-50 / text-slate-600 */
-  .text-slate-600 {
-    color: color-mix(in oklch, var(--foreground) 80%, var(--background) 20%) !important;
-  }
-
-  /* Text colors that used to be “dark on white” now become light/primary */
+  /* Text colors – force to foreground (your "white") */
   .text-slate-900,
   .text-slate-800,
-  .text-slate-700 {
-    color: var(--foreground) !important;
-  }
-
+  .text-slate-700,
+  .text-slate-600,
   .text-blue-900,
   .text-blue-800,
   .text-emerald-900 {
     color: var(--foreground) !important;
   }
 
-  /* Info cards that were purple/blue tinted */
-  .bg-white\/80 {
-    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
+  /* Muted text uses our muted-foreground */
+  .text-slate-500 {
+    color: var(--muted-foreground) !important;
   }
 
-  .border-blue-200 {
-    border-color: var(--border) !important;
+  /* Light backgrounds → dark card glass */
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-blue-50,
+  .bg-emerald-50,
+  .bg-purple-50 {
+    background-color: color-mix(
+      in oklch,
+      var(--card) 92%,
+      transparent
+    ) !important;
   }
 
-  /* Button using bg-slate-200 text-slate-900 hover:bg-slate-300  */
+  /* Table row hover */
+  .hover\:bg-slate-50:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--card) 96%,
+      transparent
+    ) !important;
+  }
+
+  /* Old "chip" / pill buttons */
   .bg-slate-200 {
-    background-color: color-mix(in oklch, var(--card) 80%, var(--background) 20%) !important;
+    background-color: oklch(0.22 0.04 260) !important; /* dark navy chip */
   }
 
   .hover\:bg-slate-300:hover {
-    background-color: color-mix(in oklch, var(--card) 70%, var(--background) 30%) !important;
+    background-color: oklch(0.26 0.04 260) !important;
   }
 
-  /* Kill light gradients (from-blue-50 via-white to-blue-50 etc.) */
-  .bg-gradient-to-br,
-  .bg-gradient-to-r {
+  /* Anything that was "danger glass" */
+  .bg-red-50,
+  .bg-destructive\/10 {
+    background-color: color-mix(
+      in oklch,
+      var(--destructive) 20%,
+      var(--background)
+    ) !important;
+  }
+
+  /* From gradient hero to solid navy */
+  .bg-gradient-to-br {
     background-image: none !important;
     background-color: var(--background) !important;
   }
 
   .from-blue-50,
-  .from-purple-50 {
-    --tw-gradient-from: var(--background) !important;
-  }
-
-  .via-white {
-    --tw-gradient-stops: var(--background) !important;
-  }
-
+  .via-white,
   .to-blue-50 {
+    --tw-gradient-from: var(--background) !important;
+    --tw-gradient-stops: var(--background) !important;
     --tw-gradient-to: var(--background) !important;
   }
 
-  /* React Flow controls / minimap navy styling */
-  .react-flow__controls-button {
-    background-color: var(--card) !important;
+  /* Special template CTA: purple→blue gradient button
+     becomes "white-ish pill with navy text" */
+  .bg-gradient-to-r.from-purple-50.to-blue-50.border-purple-300 {
+    background-image: none !important;
+    background-color: color-mix(
+      in oklch,
+      var(--foreground) 7%,
+      var(--card) 93%
+    ) !important;
+    color: var(--background) !important;
     border-color: var(--border) !important;
+  }
+
+  /* Glassy header containers */
+  .bg-white\/80 {
+    background-color: color-mix(
+      in oklch,
+      var(--card) 90%,
+      transparent
+    ) !important;
+  }
+
+  /* React Flow controls + minimap follow navy theme */
+  .react-flow__controls-button {
+    background-color: color-mix(
+      in oklch,
+      var(--card) 92%,
+      transparent
+    ) !important;
     color: var(--foreground) !important;
+    border-color: var(--border) !important;
   }
 
   .react-flow__controls-button:hover {
-    background-color: color-mix(in oklch, var(--card) 85%, var(--primary) 15%) !important;
-    color: var(--foreground) !important;
+    background-color: color-mix(
+      in oklch,
+      var(--card) 98%,
+      transparent
+    ) !important;
   }
 
-  .react-flow__minimap,
-  .react-flow__minimap-mask {
-    background-color: color-mix(in oklch, var(--background) 90%, transparent) !important;
+  .react-flow__minimap {
+    background-color: oklch(0.18 0.04 260) !important;
   }
 
   .react-flow__minimap-desc-1 {
-    fill: var(--primary) !important;
+    fill: oklch(0.25 0.05 260) !important;
   }
 
-  /* If something uses dark:bg-slate-950, keep it close to our bg */
-  .dark .bg-slate-950 {
-    background-color: oklch(0.10 0.04 260) !important;
+  /* Force old template cards (emerald/purple info) into theme */
+  .bg-emerald-50.border-emerald-200,
+  .bg-purple-50.border-purple-200 {
+    background-color: color-mix(
+      in oklch,
+      var(--card) 92%,
+      transparent
+    ) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* Old info headings in those cards */
+  .font-medium.text-emerald-900,
+  .font-semibold.text-blue-900 {
+    color: var(--foreground) !important;
+  }
+
+  /* Inputs: make focus ring & border white instead of neon blue
+     (used by your search input) */
+  .focus-visible\:ring-primary:focus-visible {
+    --tw-ring-color: var(--foreground) !important;
+  }
+
+  .focus-visible\:border-ring:focus-visible {
+    border-color: var(--foreground) !important;
+  }
+
+  /* Safety dupes – some templates repeat these a lot */
+  .text-slate-900 {
+    color: var(--foreground) !important;
   }
 }
