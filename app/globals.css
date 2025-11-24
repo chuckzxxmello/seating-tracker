@@ -286,6 +286,30 @@
   .border-emerald-200 {
     border-color: var(--border) !important;
   }
+   input:focus-visible,
+   .input:focus-visible,
+[data-slot="input"]:focus-visible {
+  border-color: var(--foreground) !important;
+  box-shadow: 0 0 0 2px var(--foreground) !important;
+  outline: none !important;
+}
+
+/* ===========================
+   BUTTON FIX: Search → white with navy text
+   =========================== */
+
+[data-slot="button"].bg-primary {
+  background-color: var(--foreground) !important;
+  color: var(--primary-foreground) !important;
+}
+
+[data-slot="button"].bg-primary:hover {
+  background-color: color-mix(
+    in oklch,
+    var(--foreground) 85%,
+    var(--primary) 15%
+  ) !important;
+}
 
   .border-blue-600 {
     border-color: var(--primary) !important;
