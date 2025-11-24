@@ -345,7 +345,19 @@
     background-color: oklch(0.25 0.05 30 / 0.4) !important;
   }
 
-  /* --- “light mode” Tailwind utility overrides -> navy theme --- */
+  .text-destructive {
+    color: oklch(0.55 0.14 30) !important; /* muted warm red */
+  }
+
+  /* Hovering destructive text */
+  .hover\:text-destructive:hover {
+    color: oklch(0.60 0.14 30) !important; /* slightly brighter, still soft */
+  }
+
+  /* Extra: disabled destructive text */
+  .disabled\:text-destructive:disabled {
+    color: oklch(0.40 0.05 30 / 0.6) !important;
+  }
 
   /* Generic card fixes */
   .bg-white {
