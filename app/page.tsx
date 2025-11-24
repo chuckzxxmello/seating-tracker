@@ -150,11 +150,15 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Find Your Seat card (dark, like your design) */}
-        <Card className="bg-card border border-border p-4 md:p-8 shadow-sm">
-          <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">
+        {/* Find Your Seat card (dark, like your design) 
+        
+        /* <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">
             Find Your Seat
-          </h2>
+          </h2> */
+          
+        */}
+        <Card className="bg-card border border-border p-4 md:p-8 shadow-sm">
+          
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
