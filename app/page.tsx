@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle2, Volume2, VolumeX } from "lucide-react";
+import { Search, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 import Image from "next/image";
 import { PathfindingVisualization } from "@/components/pathfinding-visualization";
 import {
@@ -23,33 +24,37 @@ export default function CheckinPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ambience
-  const [ambienceOn, setAmbienceOn] = useState(false);
+  // Background music (low volume, starts after first click)
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
-    audio.volume = 0.15;
+    if (typeof window === "undefined") return;
 
-    if (ambienceOn) {
-      audio
-        .play()
-        .catch(() => {
-          /* ignore autoplay block */
-        });
-    } else {
-      audio.pause();
-    }
-  }, [ambienceOn]);
+    const handleFirstInteraction = () => {
+      if (audioRef.current) {
+        audioRef.current.volume = 0.15;
+        audioRef.current
+          .play()
+          .catch(() => {
+            // ignore autoplay errors
+          });
+      }
+      window.removeEventListener("click", handleFirstInteraction);
+    };
+
+    window.addEventListener("click", handleFirstInteraction);
+    return () => window.removeEventListener("click", handleFirstInteraction);
+  }, []);
 
   const handleSearch = async () => {
+    if (!searchInput.trim()) return;
+
     setIsSearching(true);
     setError(null);
     setSelectedAttendee(null);
 
     try {
-      const results = await searchAttendees(searchInput);
+      const results = await searchAttendees(searchInput.trim());
       if (results.length > 0) {
         setSelectedAttendee(results[0]);
       } else {
@@ -71,12 +76,12 @@ export default function CheckinPage() {
         const isVIP = selectedAttendee.category === "VIP";
         const capacity = await checkTableCapacity(
           selectedAttendee.assignedSeat,
-          isVIP,
+          isVIP
         );
 
         if (capacity.isFull) {
           setError(
-            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`,
+            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`
           );
           return;
         }
@@ -97,7 +102,7 @@ export default function CheckinPage() {
         selectedAttendee.assignedSeat,
         {
           name: selectedAttendee.name,
-        },
+        }
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
@@ -132,7 +137,7 @@ export default function CheckinPage() {
         selectedAttendee.assignedSeat,
         {
           name: selectedAttendee.name,
-        },
+        }
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: false });
@@ -145,26 +150,33 @@ export default function CheckinPage() {
   };
 
   return (
-    <div className="starfield relative min-h-screen bg-background text-foreground">
-      {/* bgm (user-activated to avoid autoplay issues) */}
+    <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
+      {/* subtle star / twinkle overlay */}
+      <div className="twinkle-layer" aria-hidden="true" />
+
+      {/* background music – IMPORTANT: replace src with your own mp3 file.
+          You can't directly use a YouTube URL as an <audio> src. */}
       <audio
         ref={audioRef}
-        src="/audio/legacy-night-bgm.mp3" // put your own mp3 here
+        src="/audio/legacy-night-bgm.mp3"
         loop
+        preload="auto"
       />
 
-      {/* Sticky header (kept simple / invisible) */}
-      <header className="sticky top-0 z-20 border-b border-border bg-card/40 backdrop-blur-sm" />
+      {/* Sticky header if you want controls later */}
+      <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm"></header>
 
       {/* Main content */}
-      <main className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        <div className="flex justify-center animate-fade-in">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14 space-y-8 md:space-y-10">
+        {/* Logo fade-in */}
+        <div className="flex justify-center mb-4 md:mb-6">
           <Image
             src="/images/home-mark.png"
             alt="Logo"
-            width={80}
-            height={80}
-            className="h-auto w-auto drop-shadow-[0_0_30px_rgba(0,200,255,0.4)]"
+            width={120}
+            height={120}
+            className="h-auto w-auto animate-hero-logo drop-shadow-[0_0_40px_rgba(0,0,0,0.8)]"
+            priority
           />
         </div>
 
@@ -176,7 +188,7 @@ export default function CheckinPage() {
         )}
 
         {/* Search card */}
-        <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg backdrop-blur-sm animate-slide-up">
+        <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
@@ -191,7 +203,7 @@ export default function CheckinPage() {
             <Button
               onClick={handleSearch}
               disabled={!searchInput || isSearching}
-              className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 bg-primary-foreground text-primary hover:bg-primary-foreground/90 border border-border shadow-md transition-all"
+              className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
             >
               {isSearching ? "Searching..." : "Search"}
             </Button>
@@ -200,19 +212,21 @@ export default function CheckinPage() {
 
         {/* Selected attendee + map + check-in actions */}
         {selectedAttendee && (
-          <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-scale-in">
+          <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-base md:text-lg font-semibold leading-tight">
                 Venue Map
               </h2>
-              <p className="text-xs md:text-sm bg-muted text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
+
+              <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
                 Your assigned seat is{" "}
                 <strong className="text-primary">
                   Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
                 </strong>
                 . Look for the highlighted table with the orange circle on the
-                map below.
+                map above.
               </p>
+
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {!selectedAttendee.checkedIn ? (
                   <Button
@@ -225,7 +239,7 @@ export default function CheckinPage() {
                   </Button>
                 ) : (
                   <>
-                    <div className="flex items-center justify-center gap-2 w-full sm:w-auto py-2 rounded-md bg-emerald-900/30 text-emerald-300">
+                    <div className="flex items-center justify-center gap-2 w-full sm:w-auto py-2 rounded-md bg-emerald-900/30 text-emerald-300 animate-scale-in">
                       <CheckCircle2 className="w-5 h-5" />
                       <span className="text-sm md:text-base">Checked In</span>
                     </div>
@@ -243,7 +257,7 @@ export default function CheckinPage() {
             </div>
 
             {selectedAttendee.assignedSeat && (
-              <div className="mb-2">
+              <div className="mb-2 animate-fade-in">
                 <PathfindingVisualization
                   seatId={selectedAttendee.assignedSeat}
                   isVip={selectedAttendee.category === "VIP"}
@@ -253,27 +267,6 @@ export default function CheckinPage() {
             )}
           </Card>
         )}
-
-        {/* ambience toggle */}
-        <div className="fixed bottom-4 right-4 flex items-center gap-2 text-xs md:text-sm text-muted-foreground bg-card/80 border border-border rounded-full px-3 py-2 backdrop-blur-md shadow-lg">
-          <button
-            type="button"
-            onClick={() => setAmbienceOn((v) => !v)}
-            className="inline-flex items-center gap-1"
-          >
-            {ambienceOn ? (
-              <>
-                <Volume2 className="w-4 h-4" />
-                <span>Ambience on</span>
-              </>
-            ) : (
-              <>
-                <VolumeX className="w-4 h-4" />
-                <span>Ambience off</span>
-              </>
-            )}
-          </button>
-        </div>
       </main>
     </div>
   );
