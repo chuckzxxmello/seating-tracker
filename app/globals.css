@@ -152,7 +152,7 @@
 }
 
 /* ===========================
-   3. Base styles (no @apply, so no errors)
+   3. Base styles
    =========================== */
 
 @layer base {
@@ -162,7 +162,7 @@
     color: var(--foreground);
 
     /* spotlight background */
-   background-image: url("/Background.png");
+    background-image: url("/Background.png");
     background-size: cover;
     background-repeat: no-repeat;
     background-position: top center;
@@ -186,7 +186,6 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
-
 
   @keyframes slideUp {
     from { opacity: 0; transform: translateY(10px); }
@@ -212,34 +211,23 @@
 }
 
 /* ===========================
-   4. Global overrides for old “light” classes
-      (so you don’t have to touch components)
+   4. Utility overrides
    =========================== */
 
 @layer utilities {
+  /* ---- Global backgrounds ---- */
+
   /* Any bg-white card becomes a dark card */
   .bg-white {
     background-color: var(--card) !important;
   }
 
-   .bg-background {
+  .bg-background {
+    /* Let your hero / body background show through */
     background-color: transparent !important;
   }
 
-  /* Common text class used in templates */
-  .text-slate-900 {
-    color: var(--foreground) !important;
-  }
-
-  /* If something uses dark:bg-slate-950, keep it close to our bg */
-  .dark .bg-slate-950 {
-    background-color: oklch(0.10 0.04 260) !important;
-  }
-  
-   .text-slate-900 {
-    color: var(--foreground) !important;
-  }
-
+  /* Kill light gradients */
   .bg-gradient-to-br {
     background-image: none !important;
     background-color: var(--background) !important;
@@ -258,10 +246,32 @@
     --tw-gradient-to: var(--background) !important;
   }
 
-  /* 2) Headers: remove white glass look and blue border */
+  /* Light background classes → dark cards */
+  .bg-slate-50,
+  .bg-blue-50,
+  .bg-emerald-50 {
+    background-color: var(--card) !important;
+  }
 
+  /* Table/button grays → secondary dark blue */
+  .bg-slate-200,
+  .bg-slate-300 {
+    background-color: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+  }
+
+  .hover\:bg-slate-50:hover,
+  .hover\:bg-slate-300:hover {
+    background-color: color-mix(in oklch, var(--secondary) 70%, var(--primary) 30%) !important;
+  }
+
+  /* Dark background in dark mode */
+  .dark .bg-slate-950 {
+    background-color: oklch(0.10 0.04 260) !important;
+  }
+
+  /* Glassy header card variant */
   .bg-white\/80 {
-    /* Tailwind's bg-white/80 → dark card glass */
     background-color: color-mix(
       in oklch,
       var(--card) 90%,
@@ -269,17 +279,36 @@
     ) !important;
   }
 
-  .border-blue-200 {
+  /* ---- Borders ---- */
+
+  .border-blue-200,
+  .border-slate-200,
+  .border-emerald-200 {
     border-color: var(--border) !important;
   }
 
-  /* 3) Extra safety: any pure bg-white → card */
-  .bg-white {
-    background-color: var(--card) !important;
+  .border-blue-600 {
+    border-color: var(--primary) !important;
   }
 
-  .text-slate-900 {
+  /* ---- Text colors → palette ---- */
+
+  /* Common slate text to foreground (table headers, meta text, etc.) */
+  .text-slate-900,
+  .text-slate-800,
+  .text-slate-700,
+  .text-slate-600 {
     color: var(--foreground) !important;
   }
-}
+
+  /* Blue-emphasis text (Venue Map Editor heading, description) → white */
+  .text-blue-900,
+  .text-blue-800 {
+    color: var(--foreground) !important;
+  }
+
+  /* Emerald emphasis text (How to use:) → white */
+  .text-emerald-900 {
+    color: var(--foreground) !important;
+  }
 }
