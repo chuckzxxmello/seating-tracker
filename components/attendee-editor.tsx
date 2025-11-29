@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { X, Save } from "lucide-react"
 import { updateAttendee, logAudit, checkTableCapacity, cancelCheckIn } from "@/lib/firebase-service"
-import { validateAttendeeData } from "@/lib/validators"
 
 interface Attendee {
   id: string
@@ -17,7 +16,7 @@ interface Attendee {
   table?: number
   assignedSeat?: number
   checkedIn: boolean
-  // email removed
+  email?: string // keep optional, but we won't edit or validate it
 }
 
 interface AttendeeEditorProps {
@@ -92,13 +91,14 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
       return
     }
 
-    // Use the final category for validation
-    const validation = validateAttendeeData({
-      ...editData,
-      category: categoryToSave,
-    })
-    if (!validation.valid) {
-      setError(validation.errors.join(", "))
+    // Minimal manual validation – NO email validation here
+    const errors: string[] = []
+    if (!editData.name.trim()) errors.push("Full name is required")
+    if (!editData.region) errors.push("Region is required")
+    if (!categoryToSave) errors.push("Category is required")
+
+    if (errors.length) {
+      setError(errors.join(", "))
       return
     }
 
@@ -128,7 +128,7 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
       await updateAttendee(attendee.id, {
         name: editData.name.trim(),
-        // email removed from payload
+        // email removed from update payload – we no longer edit it
         region: editData.region,
         category: categoryToSave, // store final category (custom if needed)
         assignedSeat: editData.assignedSeat || null,
