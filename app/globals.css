@@ -174,6 +174,24 @@
     outline-color: color-mix(in oklch, var(--ring) 60%, transparent);
   }
 
+   select {
+    background-color: var(--card) !important;      /* closed state */
+    color: var(--foreground) !important;
+  }
+
+  select option {
+    background-color: var(--card) !important;      /* open dropdown list */
+    color: var(--foreground) !important;
+  }
+
+  /* Optional: hover/active option color tweak */
+  select option:checked,
+  select option:hover {
+    background-color: color-mix(in oklch, var(--card) 70%, var(--primary) 30%)
+      !important;
+    color: var(--foreground) !important;
+  }
+
   button,
   a,
   input,
