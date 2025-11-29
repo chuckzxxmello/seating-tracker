@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,11 +17,12 @@ interface PathfindingVisualizationProps {
   seatId: number | null;
   imageSrc?: string;
   showBackground?: boolean;
+
   /**
    * isVip:
-   * true  = show only VIP seat
-   * false = show only regular seat
-   * undefined = ADMIN MODE → show BOTH VIP + regular seats
+   *  - true  → attendee is VIP → only VIP table with this seatId is shown/validated/highlighted
+   *  - false → attendee is regular → only regular table with this seatId is shown/validated/highlighted
+   *  - undefined → ADMIN MODE (e.g. delegate search) → both VIP and regular tables for this seatId
    */
   isVip?: boolean;
 }
@@ -31,7 +31,7 @@ export function PathfindingVisualization({
   seatId,
   imageSrc,
   showBackground = false,
-  isVip, // ⬅ no default anymore!
+  isVip, // NOTE: no default! undefined means "admin mode"
 }: PathfindingVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,7 +65,9 @@ export function PathfindingVisualization({
   const WHEEL_ZOOM_OUT = 0.92;
   const DOUBLE_TAP_ZOOM = 1.15;
 
+  // ---------------------------------------------------------------------------
   // Load venue nodes
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     async function loadVenueData() {
       try {
@@ -86,7 +88,9 @@ export function PathfindingVisualization({
     loadVenueData();
   }, []);
 
-  // FIXED — correctly detect seat based on (VIP, regular, admin)
+  // ---------------------------------------------------------------------------
+  // Validate the requested seat exists (VIP/regular/admin aware)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!seatId || venueNodes.length === 0) return;
 
@@ -96,7 +100,7 @@ export function PathfindingVisualization({
           ? ["vip-table"]
           : isVip === false
           ? ["table"]
-          : ["table", "vip-table"]; // ADMIN MODE → show both
+          : ["table", "vip-table"]; // admin mode → both
 
       const matches = venueNodes.filter((node) => {
         if (!allowedTypes.includes(node.type)) return false;
@@ -105,9 +109,13 @@ export function PathfindingVisualization({
       });
 
       if (matches.length === 0) {
-        if (isVip === true) setError(`VIP table ${seatId} not found`);
-        else if (isVip === false) setError(`Table ${seatId} not found`);
-        else setError(`No VIP or regular table ${seatId} found`);
+        if (isVip === true) {
+          setError(`VIP table ${seatId} not found`);
+        } else if (isVip === false) {
+          setError(`Table ${seatId} not found`);
+        } else {
+          setError(`No VIP or regular table ${seatId} found`);
+        }
       } else {
         setError(null);
       }
@@ -117,7 +125,9 @@ export function PathfindingVisualization({
     }
   }, [seatId, venueNodes, isVip]);
 
-  // -------- zoom & pan helpers --------
+  // ---------------------------------------------------------------------------
+  // Zoom / pan helpers
+  // ---------------------------------------------------------------------------
   const clampZoom = (z: number) => Math.min(4, Math.max(0.5, z));
 
   const zoomAtPoint = (factor: number, clientX: number, clientY: number) => {
@@ -136,6 +146,7 @@ export function PathfindingVisualization({
       setPan((prevPan) => {
         const worldX = (x - prevPan.x) / prevZoom;
         const worldY = (y - prevPan.y) / prevZoom;
+
         return {
           x: x - worldX * targetZoom,
           y: y - worldY * targetZoom,
@@ -155,6 +166,7 @@ export function PathfindingVisualization({
 
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
+
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
@@ -162,10 +174,14 @@ export function PathfindingVisualization({
 
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
-    if (!isFullscreen) handleResetView();
+    if (!isFullscreen) {
+      handleResetView();
+    }
   };
 
-  // -------- Double tap / click --------
+  // ---------------------------------------------------------------------------
+  // Double-tap / double-click detection
+  // ---------------------------------------------------------------------------
   const handleTouchDoubleTapCheck = (
     e: React.PointerEvent<HTMLCanvasElement>,
   ) => {
@@ -194,18 +210,20 @@ export function PathfindingVisualization({
       lastTapTimeRef.current = null;
       lastTapPosRef.current = null;
       return true;
+    } else {
+      lastTapTimeRef.current = now;
+      lastTapPosRef.current = { x: e.clientX, y: e.clientY };
+      return false;
     }
-
-    lastTapTimeRef.current = now;
-    lastTapPosRef.current = { x: e.clientX, y: e.clientY };
-    return false;
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     zoomAtPoint(DOUBLE_TAP_ZOOM, e.clientX, e.clientY);
   };
 
-  // -------- Pointer events --------
+  // ---------------------------------------------------------------------------
+  // Pointer handlers: drag + pinch
+  // ---------------------------------------------------------------------------
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === "touch") {
       const used = handleTouchDoubleTapCheck(e);
@@ -225,7 +243,8 @@ export function PathfindingVisualization({
     } else if (pointers.length === 2) {
       const [, p1] = pointers[0];
       const [, p2] = pointers[1];
-      lastPinchDistanceRef.current = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      lastPinchDistanceRef.current = dist;
       dragPointerIdRef.current = null;
       lastDragPosRef.current = null;
     }
@@ -248,16 +267,22 @@ export function PathfindingVisualization({
 
       lastDragPosRef.current = { x: e.clientX, y: e.clientY };
 
-      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      setPan((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
     } else if (pointers.length >= 2 && lastPinchDistanceRef.current) {
       e.preventDefault();
       const [p1, p2] = pointers;
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      if (dist !== 0) {
-        const factor = dist / lastPinchDistanceRef.current;
-        zoomAtPoint(factor, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
-        lastPinchDistanceRef.current = dist;
-      }
+      if (dist === 0) return;
+
+      const factor = dist / lastPinchDistanceRef.current;
+      const centerX = (p1.x + p2.x) / 2;
+      const centerY = (p1.y + p2.y) / 2;
+
+      zoomAtPoint(factor, centerX, centerY);
+      lastPinchDistanceRef.current = dist;
     }
   };
 
@@ -280,10 +305,17 @@ export function PathfindingVisualization({
     }
   };
 
-  const handlePointerUp = endPointer;
-  const handlePointerCancel = endPointer;
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    endPointer(e);
+  };
 
-  // -------- Prevent page scrolling on wheel zoom --------
+  const handlePointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    endPointer(e);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Native wheel listener (zoom, no page scroll)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -295,23 +327,35 @@ export function PathfindingVisualization({
     };
 
     container.addEventListener("wheel", handleWheelNative, { passive: false });
-    return () =>
+
+    return () => {
       container.removeEventListener("wheel", handleWheelNative);
+    };
   }, [isFullscreen]);
 
-  // -------- Drawing: FIXED seat selection logic --------
-
+  // ---------------------------------------------------------------------------
+  // Seat highlighting logic (VIP / regular / admin)
+  // ---------------------------------------------------------------------------
   const isSeatNodeSelected = (node: VenueNode) => {
     const tableNum = node.label.match(/\d+/)?.[0];
-    if (!seatId || tableNum !== String(seatId)) return false;
+    if (!seatId || !tableNum || tableNum !== String(seatId)) return false;
 
-    if (isVip === true) return node.type === "vip-table";
-    if (isVip === false) return node.type === "table";
+    if (isVip === true) {
+      // attendee is VIP – only VIP tables count
+      return node.type === "vip-table";
+    }
+    if (isVip === false) {
+      // attendee is regular – only regular tables count
+      return node.type === "table";
+    }
 
-    // ADMIN VIEW → highlight BOTH
+    // admin view (isVip undefined) – highlight both VIP and regular tables
     return node.type === "table" || node.type === "vip-table";
   };
 
+  // ---------------------------------------------------------------------------
+  // Drawing
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || venueNodes.length === 0) return;
@@ -341,7 +385,8 @@ export function PathfindingVisualization({
       parent?.clientHeight ??
       Math.ceil((contentHeight / contentWidth) * cssWidth);
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr =
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
@@ -444,6 +489,7 @@ export function PathfindingVisualization({
         ctx.textBaseline = "middle";
         ctx.fillText("PHOTO", pos.x, pos.y);
       } else if (node.type === "edge-node") {
+        // invisible
         return;
       } else if (
         node.type === "custom" ||
@@ -506,8 +552,9 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [seatId, venueNodes, isVip, zoom, pan]);
 
-  // -------- UI Rendering --------
-
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
   if (isLoading) {
     return (
       <Card className="bg-card/80 border-border p-6 md:p-8 shadow-sm">
@@ -586,7 +633,7 @@ export function PathfindingVisualization({
         </div>
       )}
 
-      {/* Embedded view */}
+      {/* Normal embedded view */}
       <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
         {error && (
           <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
