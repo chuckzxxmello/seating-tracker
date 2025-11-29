@@ -75,6 +75,8 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
+  // ---- EXACT MATCH + FILTERS ----
+
   const matchesExactSearch = (att: AttendeeRecord, rawQuery: string): boolean => {
     const q = rawQuery.trim().toLowerCase();
     if (!q) return false;
@@ -82,14 +84,14 @@ export default function CheckinPage() {
     const name = (att.name ?? "").toLowerCase();
     const ticket = (att.ticketNumber ?? "").toLowerCase();
 
-    // STRICT: must match full name or full ticket
+    // strict: full string must equal full name OR full ticket
     return name === q || ticket === q;
   };
 
   const applyFilters = (list: AttendeeRecord[], rawQuery: string): AttendeeRecord[] => {
     let filtered = list;
 
-    // exact search by full name or full ticket
+    // exact search
     filtered = filtered.filter((att) => matchesExactSearch(att, rawQuery));
 
     // region filter
@@ -124,11 +126,11 @@ export default function CheckinPage() {
 
     try {
       const results = (await searchAttendees(raw)) as AttendeeRecord[];
-
       const filtered = applyFilters(results, raw);
 
       if (filtered.length > 0) {
-        setSelectedAttendee(filtered[0]); // pick first best match after filters
+        // pick the first best match after filters
+        setSelectedAttendee(filtered[0]);
       } else {
         setError(
           "No attendee found with that ticket number or name (given the current filters). Please check and try again.",
@@ -147,6 +149,8 @@ export default function CheckinPage() {
     setSearchInput("");
     setError(null);
   };
+
+  // ---- CHECK-IN LOGIC (keep / update check-in time) ----
 
   const handleCheckin = async () => {
     if (!selectedAttendee) return;
@@ -174,6 +178,7 @@ export default function CheckinPage() {
 
       const now = new Date();
 
+      // Backend should also store/update a timestamp
       await checkInAttendee(selectedAttendee.id);
       await logAudit(
         "check_in",
@@ -185,7 +190,7 @@ export default function CheckinPage() {
         },
       );
 
-      // Update local state: mark as checked in + record time
+      // Overwrite check-in time on every successful check-in
       setSelectedAttendee({
         ...selectedAttendee,
         checkedIn: true,
@@ -223,11 +228,18 @@ export default function CheckinPage() {
         },
       );
 
-      // Only flip the flag, keep last checkInTime
-      setSelectedAttendee({
-        ...selectedAttendee,
-        checkedIn: false,
-      });
+      // IMPORTANT:
+      // Only flip the `checkedIn` flag.
+      // Do NOT clear `checkedInTime` – keep the last check-in timestamp.
+      setSelectedAttendee((prev) =>
+        prev
+          ? {
+              ...prev,
+              checkedIn: false,
+              // checkedInTime: prev.checkedInTime  // kept implicitly
+            }
+          : prev,
+      );
     } catch (err) {
       console.error("[v0] Error cancelling check-in:", err);
       setError("Failed to cancel check-in. Please try again.");
@@ -244,7 +256,7 @@ export default function CheckinPage() {
       {/* background music */}
       <audio ref={audioRef} src="/audio/legacy-night-bgm.mp3" loop preload="auto" />
 
-      {/* Sticky header if you want controls later */}
+      {/* Sticky header */}
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
 
       {/* Main content */}
