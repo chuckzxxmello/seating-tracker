@@ -55,8 +55,8 @@ export function PathfindingVisualization({
 
   // tuning
   const PAN_SPEED = 1.2;
-  const WHEEL_ZOOM_IN = 1.08;   // was 1.2
-  const WHEEL_ZOOM_OUT = 0.92;  // was 0.8
+  const WHEEL_ZOOM_IN = 1.08; // was 1.2
+  const WHEEL_ZOOM_OUT = 0.92; // was 0.8
   const DOUBLE_TAP_ZOOM = 1.15; // was 1.6
 
   // Load venue nodes from Firebase
@@ -289,8 +289,12 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+  // **NEW**: Handle wheel on container (and stop scroll propagation)
+  const handleWheel = (
+    e: React.WheelEvent<HTMLDivElement>,
+  ) => {
     e.preventDefault();
+    e.stopPropagation();
     const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
     zoomAtPoint(factor, e.clientX, e.clientY);
   };
@@ -341,9 +345,9 @@ export function PathfindingVisualization({
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
 
-    // Reset transform & paint background (dimmer than pure white)
+    // Reset transform & paint background
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#0b1020"; // deep, but not full navy - easier on eyes
+    ctx.fillStyle = "#0b1020";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Scale so the whole map fits inside the container
@@ -443,7 +447,11 @@ export function PathfindingVisualization({
           ctx.fillStyle = "#E5E7EB";
           ctx.font = `${Math.max(7, 8 * contentScale)}px sans-serif`;
           ctx.textAlign = "center";
-          ctx.fillText(node.label.substring(0, 8), pos.x, pos.y + 15 * contentScale);
+          ctx.fillText(
+            node.label.substring(0, 8),
+            pos.x,
+            pos.y + 15 * contentScale,
+          );
         }
       } else if (node.type === "entrance") {
         ctx.fillStyle = highlight ? "#FBBF24" : "#10B981";
@@ -533,8 +541,9 @@ export function PathfindingVisualization({
     onPointerUp: handlePointerUp,
     onPointerCancel: handlePointerCancel,
     onPointerLeave: handlePointerUp,
-    onWheel: handleWheel,
     onDoubleClick: handleDoubleClick,
+    // make very sure browser doesn't try to handle touch scroll/zoom
+    style: { touchAction: "none" as const },
   } as const;
 
   return (
@@ -555,7 +564,8 @@ export function PathfindingVisualization({
           </div>
           <div
             ref={containerRef}
-            className="relative flex-1 overflow-hidden bg-background"
+            className="relative flex-1 overflow-hidden bg-background overscroll-contain"
+            onWheel={handleWheel}
           >
             <canvas
               {...canvasProps}
@@ -588,9 +598,7 @@ export function PathfindingVisualization({
         {seatId && !error && (
           <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
             <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
-              <h3 className="font-semibold text-sm md:text-base">
-              Venue Map
-              </h3>
+              <h3 className="font-semibold text-sm md:text-base">Venue Map</h3>
             </p>
             <Button
               variant="ghost"
@@ -606,7 +614,8 @@ export function PathfindingVisualization({
         <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
           <div
             ref={containerRef}
-            className="relative w-full h-[75vh] md:h-[550px] lg:h-[650px] max-w-full"
+            className="relative w-full h-[75vh] md:h-[550px] lg:h-[650px] max-w-full overscroll-contain"
+            onWheel={handleWheel}
           >
             <canvas
               {...canvasProps}
