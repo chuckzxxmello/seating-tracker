@@ -27,10 +27,13 @@ interface AdminAttendeesListProps {
   adminEmail?: string
 }
 
+type SearchMode = "smart" | "exact"
+
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchMode, setSearchMode] = useState<SearchMode>("smart")
   const [selectedRegion, setSelectedRegion] = useState("All Regions")
   const [isLoading, setIsLoading] = useState(true)
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null)
@@ -39,7 +42,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+
   const ITEMS_PER_PAGE = 50
+  const regions = ["All Regions", "Luzon", "Visayas", "Mindanao", "International"]
 
   useEffect(() => {
     loadAttendees()
@@ -50,7 +55,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       setIsLoading(true)
       const data = await getAttendees()
       setAttendees(data)
-      filterAttendees(data, searchQuery, selectedRegion)
+      filterAttendees(data, searchQuery, selectedRegion, searchMode)
     } catch (error) {
       console.error("[v0] Error loading attendees:", error)
     } finally {
@@ -58,15 +63,38 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
-  const filterAttendees = (attendeeList: Attendee[], search: string, region: string) => {
+  // Helper: how to match based on search mode
+  const matchesSearch = (att: Attendee, q: string, mode: SearchMode): boolean => {
+    const name = att.name?.toLowerCase() ?? ""
+    const ticket = att.ticketNumber?.toLowerCase() ?? ""
+
+    if (!q) return true
+
+    if (mode === "exact") {
+      // Only match full name or full ticket
+      return name === q || ticket === q
+    }
+
+    // smart mode → partial contains
+    return name.includes(q) || ticket.includes(q)
+  }
+
+  /**
+   * Filters attendees and updates state.
+   * Returns the filtered list so callers can use it immediately (for pathfinding, etc.).
+   */
+  const filterAttendees = (
+    attendeeList: Attendee[],
+    search: string,
+    region: string,
+    mode: SearchMode,
+  ): Attendee[] => {
     let filtered = attendeeList
 
-    if (search) {
-      filtered = filtered.filter(
-        (att) =>
-          att.name?.toLowerCase().includes(search.toLowerCase()) ||
-          att.ticketNumber?.toLowerCase().includes(search.toLowerCase()),
-      )
+    const q = search.trim().toLowerCase()
+
+    if (q) {
+      filtered = filtered.filter((att) => matchesSearch(att, q, mode))
     }
 
     if (region !== "All Regions") {
@@ -74,37 +102,78 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
 
     setFilteredAttendees(filtered)
+    return filtered
   }
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    filterAttendees(attendees, query, selectedRegion)
     setCurrentPage(1)
-    const attendee = filteredAttendees.find(
-      (att) =>
-        att.name?.toLowerCase().includes(query.toLowerCase()) ||
-        att.ticketNumber?.toLowerCase().includes(query.toLowerCase()),
-    )
-    setSelectedSeatForPath(attendee?.assignedSeat || null)
+
+    const filtered = filterAttendees(attendees, query, selectedRegion, searchMode)
+
+    if (!query.trim()) {
+      setSelectedSeatForPath(null)
+      setSelectedAttendeeIsVip(false)
+      return
+    }
+
+    const q = query.trim().toLowerCase()
+    const attendee = filtered.find((att) => matchesSearch(att, q, searchMode))
+
+    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
     setSelectedAttendeeIsVip(attendee?.category === "VIP")
   }
 
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region)
-    filterAttendees(attendees, searchQuery, region)
     setCurrentPage(1)
+
+    const filtered = filterAttendees(attendees, searchQuery, region, searchMode)
+
+    if (!searchQuery.trim()) {
+      setSelectedSeatForPath(null)
+      setSelectedAttendeeIsVip(false)
+      return
+    }
+
+    const q = searchQuery.trim().toLowerCase()
+    const attendee = filtered.find((att) => matchesSearch(att, q, searchMode))
+
+    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
+    setSelectedAttendeeIsVip(attendee?.category === "VIP")
+  }
+
+  const handleSearchModeChange = (mode: SearchMode) => {
+    setSearchMode(mode)
+    setCurrentPage(1)
+
+    const filtered = filterAttendees(attendees, searchQuery, selectedRegion, mode)
+
+    if (!searchQuery.trim()) {
+      setSelectedSeatForPath(null)
+      setSelectedAttendeeIsVip(false)
+      return
+    }
+
+    const q = searchQuery.trim().toLowerCase()
+    const attendee = filtered.find((att) => matchesSearch(att, q, mode))
+
+    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
+    setSelectedAttendeeIsVip(attendee?.category === "VIP")
   }
 
   const handleDelete = async (attendeeId: string) => {
     if (confirm("Are you sure you want to delete this attendee?")) {
       try {
         await deleteAttendee(attendeeId)
-        setAttendees(attendees.filter((att) => att.id !== attendeeId))
-        filterAttendees(
-          attendees.filter((att) => att.id !== attendeeId),
-          searchQuery,
-          selectedRegion,
-        )
+        const updated = attendees.filter((att) => att.id !== attendeeId)
+        setAttendees(updated)
+        const filtered = filterAttendees(updated, searchQuery, selectedRegion, searchMode)
+
+        if (!filtered.some((att) => att.assignedSeat === selectedSeatForPath)) {
+          setSelectedSeatForPath(null)
+          setSelectedAttendeeIsVip(false)
+        }
       } catch (error) {
         console.error("[v0] Error deleting attendee:", error)
         alert("Failed to delete attendee")
@@ -128,8 +197,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
-  const regions = ["All Regions", "Luzon", "Visayas", "Mindanao", "International"]
-
   const totalPages = Math.ceil(filteredAttendees.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
@@ -150,6 +217,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
   return (
     <div className="space-y-6">
+      {/* Actions */}
       <div className="flex gap-3 flex-wrap">
         <Button onClick={() => setShowCSVImport(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
           <Upload className="w-4 h-4" />
@@ -169,20 +237,34 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         </Button>
       </div>
 
+      {/* Filters + Stats */}
       <Card className="bg-white border-slate-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Search + mode */}
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">Search by Name or Ticket</label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Search by Name or Ticket
+            </label>
             <Input
               placeholder="Search attendees..."
               value={searchQuery}
-              onChange={(e) => {
-                const query = e.target.value
-                handleSearch(query)
-              }}
+              onChange={(e) => handleSearch(e.target.value)}
               className="bg-white border-slate-300"
             />
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-slate-500">Search mode:</span>
+              <select
+                value={searchMode}
+                onChange={(e) => handleSearchModeChange(e.target.value as SearchMode)}
+                className="border border-slate-300 rounded-md bg-white text-xs px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-600"
+              >
+                <option value="smart">Contains (Kuya B → Kuya Bernard)</option>
+                <option value="exact">Exact (full name / ticket)</option>
+              </select>
+            </div>
           </div>
+
+          {/* Region filter */}
           <div>
             <label className="block text-sm font-medium text-slate-900 mb-2">Filter by Region</label>
             <select
@@ -198,11 +280,13 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
             </select>
           </div>
         </div>
+
         <div className="mt-8">
-        <RealTimeStatistics />
+          <RealTimeStatistics />
         </div>
       </Card>
 
+      {/* Pathfinding preview */}
       {selectedSeatForPath && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-slate-900">Venue Map with Shortest Path</h3>
@@ -215,6 +299,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         </div>
       )}
 
+      {/* Table */}
       <Card className="bg-white border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -280,10 +365,11 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
           </table>
         </div>
 
+        {/* Pagination */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, filteredAttendees.length)} of {filteredAttendees.length}{" "}
-            attendees
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredAttendees.length)} of{" "}
+            {filteredAttendees.length} attendees
           </div>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
@@ -340,9 +426,13 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         />
       )}
 
-      {showAddDialog && <AddAttendeeDialog onClose={() => setShowAddDialog(false)} onSuccess={loadAttendees} />}
+      {showAddDialog && (
+        <AddAttendeeDialog onClose={() => setShowAddDialog(false)} onSuccess={loadAttendees} />
+      )}
 
-      {showCSVImport && <CSVImportDialog onClose={() => setShowCSVImport(false)} onSuccess={loadAttendees} />}
+      {showCSVImport && (
+        <CSVImportDialog onClose={() => setShowCSVImport(false)} onSuccess={loadAttendees} />
+      )}
     </div>
   )
 }
