@@ -27,13 +27,11 @@ interface AdminAttendeesListProps {
   adminEmail?: string
 }
 
-type SearchMode = "smart" | "exact"
-
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchMode, setSearchMode] = useState<SearchMode>("smart")
+  const [exactMatch, setExactMatch] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState("All Regions")
   const [isLoading, setIsLoading] = useState(true)
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null)
@@ -55,7 +53,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       setIsLoading(true)
       const data = await getAttendees()
       setAttendees(data)
-      filterAttendees(data, searchQuery, selectedRegion, searchMode)
+      filterAttendees(data, searchQuery, selectedRegion, exactMatch)
     } catch (error) {
       console.error("[v0] Error loading attendees:", error)
     } finally {
@@ -63,39 +61,29 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
-  // Helper: how to match based on search mode
-  const matchesSearch = (att: Attendee, q: string, mode: SearchMode): boolean => {
-    const name = att.name?.toLowerCase() ?? ""
-    const ticket = att.ticketNumber?.toLowerCase() ?? ""
-
+  const matchesSearch = (att: Attendee, q: string, isExact: boolean): boolean => {
     if (!q) return true
+    const name = (att.name ?? "").toLowerCase()
+    const ticket = (att.ticketNumber ?? "").toLowerCase()
 
-    if (mode === "exact") {
-      // Only match full name or full ticket
+    if (isExact) {
+      // ✅ exact match on full name OR full ticket
       return name === q || ticket === q
     }
 
-    // smart mode → partial contains
+    // default: partial contains
     return name.includes(q) || ticket.includes(q)
   }
 
-  /**
-   * Filters attendees and updates state.
-   * Returns the filtered list so callers can use it immediately (for pathfinding, etc.).
-   */
   const filterAttendees = (
     attendeeList: Attendee[],
     search: string,
     region: string,
-    mode: SearchMode,
+    isExact: boolean,
   ): Attendee[] => {
-    let filtered = attendeeList
-
     const q = search.trim().toLowerCase()
 
-    if (q) {
-      filtered = filtered.filter((att) => matchesSearch(att, q, mode))
-    }
+    let filtered = attendeeList.filter((att) => matchesSearch(att, q, isExact))
 
     if (region !== "All Regions") {
       filtered = filtered.filter((att) => att.region === region)
@@ -105,79 +93,60 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     return filtered
   }
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
-    setCurrentPage(1)
-
-    const filtered = filterAttendees(attendees, query, selectedRegion, searchMode)
-
-    if (!query.trim()) {
+  const syncPathSelection = (
+    list: Attendee[],
+    search: string,
+    isExact: boolean,
+  ) => {
+    const q = search.trim().toLowerCase()
+    if (!q) {
       setSelectedSeatForPath(null)
       setSelectedAttendeeIsVip(false)
       return
     }
 
-    const q = query.trim().toLowerCase()
-    const attendee = filtered.find((att) => matchesSearch(att, q, searchMode))
+    const match = list.find((att) => matchesSearch(att, q, isExact))
+    setSelectedSeatForPath(match?.assignedSeat ?? null)
+    setSelectedAttendeeIsVip(match?.category === "VIP")
+  }
 
-    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
-    setSelectedAttendeeIsVip(attendee?.category === "VIP")
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1)
+    const filtered = filterAttendees(attendees, query, selectedRegion, exactMatch)
+    syncPathSelection(filtered, query, exactMatch)
   }
 
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region)
     setCurrentPage(1)
-
-    const filtered = filterAttendees(attendees, searchQuery, region, searchMode)
-
-    if (!searchQuery.trim()) {
-      setSelectedSeatForPath(null)
-      setSelectedAttendeeIsVip(false)
-      return
-    }
-
-    const q = searchQuery.trim().toLowerCase()
-    const attendee = filtered.find((att) => matchesSearch(att, q, searchMode))
-
-    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
-    setSelectedAttendeeIsVip(attendee?.category === "VIP")
+    const filtered = filterAttendees(attendees, searchQuery, region, exactMatch)
+    syncPathSelection(filtered, searchQuery, exactMatch)
   }
 
-  const handleSearchModeChange = (mode: SearchMode) => {
-    setSearchMode(mode)
+  const handleExactMatchToggle = (value: boolean) => {
+    setExactMatch(value)
     setCurrentPage(1)
-
-    const filtered = filterAttendees(attendees, searchQuery, selectedRegion, mode)
-
-    if (!searchQuery.trim()) {
-      setSelectedSeatForPath(null)
-      setSelectedAttendeeIsVip(false)
-      return
-    }
-
-    const q = searchQuery.trim().toLowerCase()
-    const attendee = filtered.find((att) => matchesSearch(att, q, mode))
-
-    setSelectedSeatForPath(attendee?.assignedSeat ?? null)
-    setSelectedAttendeeIsVip(attendee?.category === "VIP")
+    const filtered = filterAttendees(attendees, searchQuery, selectedRegion, value)
+    syncPathSelection(filtered, searchQuery, value)
   }
 
   const handleDelete = async (attendeeId: string) => {
-    if (confirm("Are you sure you want to delete this attendee?")) {
-      try {
-        await deleteAttendee(attendeeId)
-        const updated = attendees.filter((att) => att.id !== attendeeId)
-        setAttendees(updated)
-        const filtered = filterAttendees(updated, searchQuery, selectedRegion, searchMode)
+    if (!confirm("Are you sure you want to delete this attendee?")) return
 
-        if (!filtered.some((att) => att.assignedSeat === selectedSeatForPath)) {
-          setSelectedSeatForPath(null)
-          setSelectedAttendeeIsVip(false)
-        }
-      } catch (error) {
-        console.error("[v0] Error deleting attendee:", error)
-        alert("Failed to delete attendee")
+    try {
+      await deleteAttendee(attendeeId)
+      const updated = attendees.filter((att) => att.id !== attendeeId)
+      setAttendees(updated)
+      const filtered = filterAttendees(updated, searchQuery, selectedRegion, exactMatch)
+
+      if (!filtered.some((att) => att.assignedSeat === selectedSeatForPath)) {
+        setSelectedSeatForPath(null)
+        setSelectedAttendeeIsVip(false)
       }
+    } catch (error) {
+      console.error("[v0] Error deleting attendee:", error)
+      alert("Failed to delete attendee")
     }
   }
 
@@ -217,7 +186,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
   return (
     <div className="space-y-6">
-      {/* Actions */}
+      {/* Top actions */}
       <div className="flex gap-3 flex-wrap">
         <Button onClick={() => setShowCSVImport(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
           <Upload className="w-4 h-4" />
@@ -237,10 +206,10 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         </Button>
       </div>
 
-      {/* Filters + Stats */}
+      {/* Filters + stats */}
       <Card className="bg-white border-slate-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Search + mode */}
+          {/* Search */}
           <div>
             <label className="block text-sm font-medium text-slate-900 mb-2">
               Search by Name or Ticket
@@ -251,17 +220,15 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
               onChange={(e) => handleSearch(e.target.value)}
               className="bg-white border-slate-300"
             />
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-slate-500">Search mode:</span>
-              <select
-                value={searchMode}
-                onChange={(e) => handleSearchModeChange(e.target.value as SearchMode)}
-                className="border border-slate-300 rounded-md bg-white text-xs px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-600"
-              >
-                <option value="smart">Contains (Kuya B → Kuya Bernard)</option>
-                <option value="exact">Exact (full name / ticket)</option>
-              </select>
-            </div>
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input
+                type="checkbox"
+                checked={exactMatch}
+                onChange={(e) => handleExactMatchToggle(e.target.checked)}
+                className="h-3 w-3 rounded border-slate-400"
+              />
+              <span>Exact match (full name or ticket only)</span>
+            </label>
           </div>
 
           {/* Region filter */}
