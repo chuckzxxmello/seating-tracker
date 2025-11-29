@@ -66,6 +66,18 @@ export function PathfindingVisualization({
   const DOUBLE_TAP_ZOOM = 1.15;
 
   // ---------------------------------------------------------------------------
+  // Mode helpers
+  // ---------------------------------------------------------------------------
+  type Mode = "vip" | "regular" | "admin";
+
+  const mode: Mode =
+    isVip === true ? "vip" : isVip === false ? "regular" : "admin";
+
+  const isVipMode = mode === "vip";
+  const isRegularMode = mode === "regular";
+  const isAdminMode = mode === "admin";
+
+  // ---------------------------------------------------------------------------
   // Load venue nodes
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -96,9 +108,9 @@ export function PathfindingVisualization({
 
     try {
       const allowedTypes =
-        isVip === true
+        mode === "vip"
           ? ["vip-table"]
-          : isVip === false
+          : mode === "regular"
           ? ["table"]
           : ["table", "vip-table"]; // admin mode → both
 
@@ -109,9 +121,9 @@ export function PathfindingVisualization({
       });
 
       if (matches.length === 0) {
-        if (isVip === true) {
+        if (mode === "vip") {
           setError(`VIP table ${seatId} not found`);
-        } else if (isVip === false) {
+        } else if (mode === "regular") {
           setError(`Table ${seatId} not found`);
         } else {
           setError(`No VIP or regular table ${seatId} found`);
@@ -123,7 +135,7 @@ export function PathfindingVisualization({
       console.error("[v0] Error finding table:", err);
       setError("Error locating table");
     }
-  }, [seatId, venueNodes, isVip]);
+  }, [seatId, venueNodes, mode]);
 
   // ---------------------------------------------------------------------------
   // Zoom / pan helpers
@@ -340,16 +352,14 @@ export function PathfindingVisualization({
     const tableNum = node.label.match(/\d+/)?.[0];
     if (!seatId || !tableNum || tableNum !== String(seatId)) return false;
 
-    if (isVip === true) {
-      // attendee is VIP – only VIP tables count
+    if (mode === "vip") {
       return node.type === "vip-table";
     }
-    if (isVip === false) {
-      // attendee is regular – only regular tables count
+    if (mode === "regular") {
       return node.type === "table";
     }
 
-    // admin view (isVip undefined) – highlight both VIP and regular tables
+    // admin mode
     return node.type === "table" || node.type === "vip-table";
   };
 
@@ -550,7 +560,7 @@ export function PathfindingVisualization({
     venueNodes.forEach(drawNode);
 
     ctx.restore();
-  }, [seatId, venueNodes, isVip, zoom, pan]);
+  }, [seatId, venueNodes, mode, zoom, pan]);
 
   // ---------------------------------------------------------------------------
   // UI
@@ -594,6 +604,9 @@ export function PathfindingVisualization({
     style: { touchAction: "none" as const },
   } as const;
 
+  const headerLabelPrefix =
+    mode === "vip" ? "VIP Seat Number " : "Seat Number ";
+
   return (
     <>
       {/* Fullscreen overlay */}
@@ -604,7 +617,8 @@ export function PathfindingVisualization({
               <h2 className="text-base md:text-lg font-semibold leading-tight">
                 Venue Map
               </h2>
-              {isVip ? "VIP " : ""}Seat Number {seatId}
+              {headerLabelPrefix}
+              {seatId}
             </h3>
             <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
               <Minimize2 className="w-5 h-5" />
