@@ -437,7 +437,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Check-in Time</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Region</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Category</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Seat</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Table</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
               </tr>
@@ -460,7 +460,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.region}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.category || "-"}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      {attendee.assignedSeat ? `Seat ${attendee.assignedSeat}` : "Unassigned"}
+                      {attendee.assignedSeat ? `Table ${attendee.assignedSeat}` : "Unassigned"}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
