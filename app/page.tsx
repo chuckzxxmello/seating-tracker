@@ -16,10 +16,23 @@ import {
 } from "@/lib/firebase-service";
 import { useAuth } from "@/lib/auth-context";
 
+type AttendeeRecord = {
+  id: string;
+  name?: string;
+  ticketNumber?: string;
+  region?: string;
+  category?: string;
+  assignedSeat?: number;
+  checkedIn?: boolean;
+  checkedInTime?: any; // Firestore Timestamp | Date | string
+  [key: string]: any;
+};
+
 export default function CheckinPage() {
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState("");
-  const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
+  const [exactMatch, setExactMatch] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState<AttendeeRecord | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,11 +45,9 @@ export default function CheckinPage() {
     const handleFirstInteraction = () => {
       if (audioRef.current) {
         audioRef.current.volume = 0.15;
-        audioRef.current
-          .play()
-          .catch(() => {
-            // ignore autoplay errors
-          });
+        audioRef.current.play().catch(() => {
+          // ignore autoplay errors
+        });
       }
       window.removeEventListener("click", handleFirstInteraction);
     };
@@ -45,18 +56,56 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
+  // ---- SMART MATCHING (same logic style as admin list) ----
+
+  const buildTokens = (q: string): string[] =>
+    q
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  const matchesSearch = (att: AttendeeRecord, tokens: string[], isExact: boolean): boolean => {
+    if (tokens.length === 0) return true;
+
+    const name = (att.name ?? "").toLowerCase();
+    const ticket = (att.ticketNumber ?? "").toLowerCase();
+
+    if (isExact) {
+      const q = tokens.join(" ");
+      return name === q || ticket === q;
+    }
+
+    return tokens.every((token) => {
+      if (token.length <= 2) {
+        // really short pieces only apply to ticket, not names
+        return ticket.includes(token);
+      }
+      return name.includes(token) || ticket.includes(token);
+    });
+  };
+
   const handleSearch = async () => {
-    if (!searchInput.trim()) return;
+    const raw = searchInput.trim();
+    if (!raw) return;
 
     setIsSearching(true);
     setError(null);
     setSelectedAttendee(null);
 
     try {
-      const results = await searchAttendees(searchInput.trim());
-      if (results.length > 0) {
-        // success → hide search card and show attendee + map
-        setSelectedAttendee(results[0]);
+      const results = (await searchAttendees(raw)) as AttendeeRecord[];
+
+      const tokens = buildTokens(raw);
+
+      let filtered = results;
+      if (tokens.length > 0) {
+        filtered = results.filter((att) => matchesSearch(att, tokens, exactMatch));
+      }
+
+      if (filtered.length > 0) {
+        // pick the first best match
+        setSelectedAttendee(filtered[0]);
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again.",
@@ -83,10 +132,7 @@ export default function CheckinPage() {
     if (selectedAttendee.assignedSeat) {
       try {
         const isVIP = selectedAttendee.category === "VIP";
-        const capacity = await checkTableCapacity(
-          selectedAttendee.assignedSeat,
-          isVIP,
-        );
+        const capacity = await checkTableCapacity(selectedAttendee.assignedSeat, isVIP);
 
         if (capacity.isFull) {
           setError(
@@ -103,6 +149,11 @@ export default function CheckinPage() {
 
     try {
       setIsSearching(true);
+
+      const now = new Date();
+
+      // Backend should also set checkedInTime (e.g., serverTimestamp()).
+      // If you update checkInAttendee to accept a time, you can pass `now` as 2nd arg.
       await checkInAttendee(selectedAttendee.id);
       await logAudit(
         "check_in",
@@ -114,7 +165,12 @@ export default function CheckinPage() {
         },
       );
 
-      setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
+      // Update local state: mark as checked in + record time
+      setSelectedAttendee({
+        ...selectedAttendee,
+        checkedIn: true,
+        checkedInTime: now,
+      });
 
       // After a short delay, reset to allow a new search
       setTimeout(() => {
@@ -130,11 +186,7 @@ export default function CheckinPage() {
   };
 
   const handleCancelCheckIn = async () => {
-    if (
-      !selectedAttendee ||
-      !confirm("Are you sure you want to cancel this check-in?")
-    )
-      return;
+    if (!selectedAttendee || !confirm("Are you sure you want to cancel this check-in?")) return;
 
     try {
       setIsSearching(true);
@@ -151,7 +203,11 @@ export default function CheckinPage() {
         },
       );
 
-      setSelectedAttendee({ ...selectedAttendee, checkedIn: false });
+      // Only flip the flag, keep last checkInTime
+      setSelectedAttendee({
+        ...selectedAttendee,
+        checkedIn: false,
+      });
     } catch (err) {
       console.error("[v0] Error cancelling check-in:", err);
       setError("Failed to cancel check-in. Please try again.");
@@ -166,12 +222,7 @@ export default function CheckinPage() {
       <div className="twinkle-layer" aria-hidden="true" />
 
       {/* background music */}
-      <audio
-        ref={audioRef}
-        src="/audio/legacy-night-bgm.mp3"
-        loop
-        preload="auto"
-      />
+      <audio ref={audioRef} src="/audio/legacy-night-bgm.mp3" loop preload="auto" />
 
       {/* Sticky header if you want controls later */}
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
@@ -200,24 +251,37 @@ export default function CheckinPage() {
         {/* Search card – hidden when attendee is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-                <Input
-                  placeholder="Enter ticket number or name..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
-                />
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                  <Input
+                    placeholder="Enter ticket number or name..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
+                  />
+                </div>
+                <Button
+                  onClick={handleSearch}
+                  disabled={!searchInput.trim() || isSearching}
+                  className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
+                >
+                  {isSearching ? "Searching..." : "Search"}
+                </Button>
               </div>
-              <Button
-                onClick={handleSearch}
-                disabled={!searchInput || isSearching}
-                className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
-              >
-                {isSearching ? "Searching..." : "Search"}
-              </Button>
+
+              {/* Exact match toggle */}
+              <label className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={exactMatch}
+                  onChange={(e) => setExactMatch(e.target.checked)}
+                  className="h-3 w-3 md:h-4 md:w-4 rounded border-border bg-background"
+                />
+                <span>Exact match (full name or ticket only)</span>
+              </label>
             </div>
           </Card>
         )}
@@ -231,8 +295,7 @@ export default function CheckinPage() {
                 <strong className="text-primary">
                   Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
                 </strong>
-                . Look for the highlighted table with the orange circle on the
-                map below.
+                . Look for the highlighted table with the orange circle on the map below.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
