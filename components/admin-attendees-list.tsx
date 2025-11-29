@@ -29,6 +29,49 @@ interface AdminAttendeesListProps {
 
 type StatusFilter = "All" | "Checked In" | "Pending"
 
+const CATEGORY_OPTIONS = [
+  { value: "PMT", label: "PMT" },
+  { value: "Doctors/Dentists", label: "Doctors/Dentists" },
+  { value: "Partner Churches/MTLs", label: "Partner Churches/MTLs" },
+  { value: "From other churches", label: "From other churches" },
+  { value: "Major Donors", label: "Major Donors" },
+  { value: "Gideonites", label: "Gideonites" },
+  { value: "Paying Guests", label: "Paying Guests" },
+  { value: "WEYJ", label: "WEYJ" },
+  { value: "VIP", label: "VIP" },
+  { value: "Others", label: "Others" }, // custom category option
+]
+
+const regions = ["All Regions", "Luzon", "Visayas", "Mindanao", "International"]
+
+// Safely format Firestore Timestamp / Date / string
+const formatCheckInTime = (raw: any): string => {
+  if (!raw) return "-"
+  let date: Date | null = null
+
+  if (raw && typeof raw.toDate === "function") {
+    date = raw.toDate()
+  } else if (raw instanceof Date) {
+    date = raw
+  } else {
+    const parsed = new Date(raw)
+    if (!Number.isNaN(parsed.getTime())) {
+      date = parsed
+    }
+  }
+
+  if (!date) return String(raw)
+
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+}
+
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
@@ -37,7 +80,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const [selectedRegion, setSelectedRegion] = useState("All Regions")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All")
   const [categoryFilter, setCategoryFilter] = useState("All Categories")
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(["All Categories"])
   const [isLoading, setIsLoading] = useState(true)
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null)
   const [selectedSeatForPath, setSelectedSeatForPath] = useState<number | null>(null)
@@ -47,7 +89,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const [currentPage, setCurrentPage] = useState(1)
 
   const ITEMS_PER_PAGE = 50
-  const regions = ["All Regions", "Luzon", "Visayas", "Mindanao", "International"]
 
   useEffect(() => {
     loadAttendees()
@@ -59,17 +100,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       setIsLoading(true)
       const data = await getAttendees()
       setAttendees(data)
-
-      // build category options dynamically
-      const cats = Array.from(
-        new Set(
-          data
-            .map((a) => a.category?.toString().trim())
-            .filter((c): c is string => !!c && c.length > 0),
-        ),
-      ).sort()
-
-      setCategoryOptions(["All Categories", ...cats])
 
       filterAttendees(data, {
         search: searchQuery,
@@ -106,7 +136,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
     return tokens.every((token) => {
       if (token.length <= 2) {
-        // short tokens: only check ticket to keep name matching sane
         return ticket.includes(token)
       }
       return name.includes(token) || ticket.includes(token)
@@ -177,13 +206,15 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     setSelectedAttendeeIsVip(match?.category === "VIP")
   }
 
-  const recomputeFilters = (overrides?: Partial<{
-    search: string
-    region: string
-    exactMatch: boolean
-    status: StatusFilter
-    category: string
-  }>) => {
+  const recomputeFilters = (
+    overrides?: Partial<{
+      search: string
+      region: string
+      exactMatch: boolean
+      status: StatusFilter
+      category: string
+    }>,
+  ) => {
     const opts = {
       search: overrides?.search ?? searchQuery,
       region: overrides?.region ?? selectedRegion,
@@ -353,9 +384,10 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
               onChange={(e) => handleCategoryChange(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
             >
-              {categoryOptions.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              <option value="All Categories">All Categories</option>
+              {CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
@@ -402,6 +434,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Ticket</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Check-in Time</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Region</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Category</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Seat</th>
@@ -412,7 +445,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
             <tbody>
               {paginatedAttendees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-600">
+                  <td colSpan={8} className="px-6 py-8 text-center text-slate-600">
                     No attendees found
                   </td>
                 </tr>
@@ -421,6 +454,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                   <tr key={attendee.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm text-slate-900 font-medium">{attendee.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.ticketNumber}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {formatCheckInTime((attendee as any).checkedInTime)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.region}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.category || "-"}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
