@@ -16,6 +16,30 @@ export interface ParseResult {
   errors: string[];
 }
 
+/**
+ * Clean a single CSV cell:
+ * - trim whitespace
+ * - strip surrounding "..." or '...'
+ * - unescape "" → "
+ */
+function cleanCell(value: string): string {
+  let v = value.trim();
+
+  // Strip surrounding quotes "..." or '...'
+  if (
+    v.length >= 2 &&
+    ((v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'")))
+  ) {
+    v = v.slice(1, -1);
+  }
+
+  // Unescape embedded double quotes from CSV ("" → ")
+  v = v.replace(/""/g, '"');
+
+  return v;
+}
+
 export function parseCSV(csvContent: string): ParseResult {
   const lines = csvContent.trim().split("\n");
   const errors: string[] = [];
@@ -29,11 +53,11 @@ export function parseCSV(csvContent: string): ParseResult {
     };
   }
 
-  // Use lowercased headers for matching, but keep indexes
+  // Use raw header for columns; lower-case for matching
   const headerRaw = lines[0];
   const headers = headerRaw.split(",").map((h) => h.trim().toLowerCase());
 
-  // Helper: find index for any of these candidate header names
+  // Helper: find index for any candidate header names
   const findIndex = (candidates: string[]): number => {
     for (const c of candidates) {
       const idx = headers.indexOf(c);
@@ -42,8 +66,13 @@ export function parseCSV(csvContent: string): ParseResult {
     return -1;
   };
 
-  // Resolve indices (support both "ticketnumber" and "ticket number")
-  const ticketIdx = findIndex(["ticketnumber", "ticket number", "ticket_no", "ticket no"]);
+  // Support "ticketNumber", "Ticket Number", "ticket_no", etc.
+  const ticketIdx = findIndex([
+    "ticketnumber",
+    "ticket number",
+    "ticket_no",
+    "ticket no",
+  ]);
   const nameIdx = findIndex(["name"]);
   const emailIdx = findIndex(["email"]); // optional
   const regionIdx = findIndex(["region"]);
@@ -51,7 +80,7 @@ export function parseCSV(csvContent: string): ParseResult {
   const tableIdx = findIndex(["table"]);
   const seatIdx = findIndex(["seat"]);
 
-  // Check required columns
+  // Required columns
   const missingRequired: string[] = [];
   if (ticketIdx === -1) missingRequired.push("ticketNumber");
   if (nameIdx === -1) missingRequired.push("name");
@@ -66,8 +95,8 @@ export function parseCSV(csvContent: string): ParseResult {
     };
   }
 
-  // Allowed values (lowercased)
   const validRegions = ["luzon", "visayas", "mindanao", "international"];
+
   const validCategories = [
     "pmt",
     "vip",
@@ -83,21 +112,26 @@ export function parseCSV(csvContent: string): ParseResult {
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const rawLine = lines[i].trim();
+    if (!rawLine) continue;
 
-    const values = line.split(",").map((v) => v.trim());
+    // Basic split by comma (works with our own generated CSV, since we quote all fields)
+    const values = rawLine.split(",").map((v) => cleanCell(v));
     const rowNum = i + 1;
 
     const ticket = (values[ticketIdx] ?? "").toUpperCase();
     const name = values[nameIdx] ?? "";
     const rawEmail = emailIdx >= 0 ? values[emailIdx] ?? "" : "";
-    const region = regionIdx >= 0 ? values[regionIdx] ?? "" : "";
-    const category = categoryIdx >= 0 ? values[categoryIdx] ?? "" : "";
+    const regionRaw = regionIdx >= 0 ? values[regionIdx] ?? "" : "";
+    const categoryRaw = categoryIdx >= 0 ? values[categoryIdx] ?? "" : "";
     const table =
-      tableIdx >= 0 && values[tableIdx] ? Number.parseInt(values[tableIdx], 10) : undefined;
+      tableIdx >= 0 && values[tableIdx]
+        ? Number.parseInt(values[tableIdx], 10)
+        : undefined;
     const seat =
-      seatIdx >= 0 && values[seatIdx] ? Number.parseInt(values[seatIdx], 10) : undefined;
+      seatIdx >= 0 && values[seatIdx]
+        ? Number.parseInt(values[seatIdx], 10)
+        : undefined;
 
     // Validate row
     if (!ticket) {
@@ -110,15 +144,17 @@ export function parseCSV(csvContent: string): ParseResult {
       continue;
     }
 
-    const regionLc = region.toLowerCase();
-    if (!region || !validRegions.includes(regionLc)) {
-      errors.push(`Row ${rowNum}: Invalid region "${region}"`);
+    const regionClean = regionRaw.trim();
+    const regionLc = regionClean.toLowerCase();
+    if (!regionClean || !validRegions.includes(regionLc)) {
+      errors.push(`Row ${rowNum}: Invalid region "${regionRaw}"`);
       continue;
     }
 
-    const categoryLc = category.toLowerCase();
-    if (!category || !validCategories.includes(categoryLc)) {
-      errors.push(`Row ${rowNum}: Invalid category "${category}"`);
+    const categoryClean = categoryRaw.trim();
+    const categoryLc = categoryClean.toLowerCase();
+    if (!categoryClean || !validCategories.includes(categoryLc)) {
+      errors.push(`Row ${rowNum}: Invalid category "${categoryRaw}"`);
       continue;
     }
 
@@ -128,8 +164,8 @@ export function parseCSV(csvContent: string): ParseResult {
       ticketNumber: ticket,
       name,
       email,
-      region,
-      category,
+      region: regionClean,
+      category: categoryClean,
       table,
       seat,
     });
@@ -197,7 +233,9 @@ export function generateCSV(attendees: any[]): string {
 
   const csvContent = [
     headers.join(","),
-    ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")),
+    ...rows.map((r) =>
+      r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
+    ),
   ].join("\n");
 
   return csvContent;
