@@ -289,10 +289,8 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  // **NEW**: Handle wheel on container (and stop scroll propagation)
-  const handleWheel = (
-    e: React.WheelEvent<HTMLDivElement>,
-  ) => {
+  // Handle wheel on containers (and stop scroll propagation)
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
@@ -355,6 +353,18 @@ export function PathfindingVisualization({
     const scaleY = cssHeight / contentHeight;
     const contentScale = Math.min(scaleX, scaleY);
 
+    // world size of viewport at this scale
+    const viewWidthWorld = cssWidth / contentScale;
+    const viewHeightWorld = cssHeight / contentScale;
+
+    // offsets so content is centered horizontally/vertically
+    const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
+    const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
+
+    // shifted mins for centering
+    const centeredMinX = minX - offsetXWorld;
+    const centeredMinY = minY - offsetYWorld;
+
     const totalScale = zoom * dpr;
 
     ctx.save();
@@ -362,8 +372,8 @@ export function PathfindingVisualization({
     ctx.translate(pan.x / totalScale, pan.y / totalScale);
 
     const toCanvas = (x: number, y: number) => ({
-      x: (x - minX) * contentScale,
-      y: (y - minY) * contentScale,
+      x: (x - centeredMinX) * contentScale,
+      y: (y - centeredMinY) * contentScale,
     });
 
     const drawNode = (node: VenueNode, highlight = false) => {
@@ -542,8 +552,7 @@ export function PathfindingVisualization({
     onPointerCancel: handlePointerCancel,
     onPointerLeave: handlePointerUp,
     onDoubleClick: handleDoubleClick,
-    // make very sure browser doesn't try to handle touch scroll/zoom
-    style: { touchAction: "none" as const },
+    style: { touchAction: "none" as const }, // disable touch-scrolling on canvas
   } as const;
 
   return (
