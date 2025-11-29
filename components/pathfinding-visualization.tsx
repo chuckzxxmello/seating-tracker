@@ -289,13 +289,25 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  // Handle wheel on containers (and stop scroll propagation)
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
-    zoomAtPoint(factor, e.clientX, e.clientY);
-  };
+  // --- Native wheel listener to prevent page scroll -------------------------
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      e.preventDefault(); // stop document/body scroll
+      const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
+      zoomAtPoint(factor, e.clientX, e.clientY);
+    };
+
+    container.addEventListener("wheel", handleWheelNative, { passive: false });
+
+    return () => {
+      container.removeEventListener("wheel", handleWheelNative);
+    };
+    // Re-attach when switching between normal view and fullscreen
+  }, [isFullscreen]);
 
   // --- Drawing --------------------------------------------------------------
 
@@ -552,7 +564,7 @@ export function PathfindingVisualization({
     onPointerCancel: handlePointerCancel,
     onPointerLeave: handlePointerUp,
     onDoubleClick: handleDoubleClick,
-    style: { touchAction: "none" as const }, // disable touch-scrolling on canvas
+    style: { touchAction: "none" as const }, // disable touch scrolling on canvas
   } as const;
 
   return (
@@ -574,7 +586,6 @@ export function PathfindingVisualization({
           <div
             ref={containerRef}
             className="relative flex-1 overflow-hidden bg-background overscroll-contain"
-            onWheel={handleWheel}
           >
             <canvas
               {...canvasProps}
@@ -624,7 +635,6 @@ export function PathfindingVisualization({
           <div
             ref={containerRef}
             className="relative w-full h-[75vh] md:h-[550px] lg:h-[650px] max-w-full overscroll-contain"
-            onWheel={handleWheel}
           >
             <canvas
               {...canvasProps}
