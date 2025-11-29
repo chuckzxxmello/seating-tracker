@@ -56,9 +56,11 @@ export default function CheckinPage() {
     try {
       const results = await searchAttendees(searchInput.trim());
       if (results.length > 0) {
-        setSelectedAttendee(results[0]);
+        setSelectedAttendee(results[0]); // success → show map only (search card hidden)
       } else {
-        setError("No attendee found with that search term.");
+        setError(
+          "No attendee found with that ticket number or name. Please check the spelling and try again."
+        );
       }
     } catch (err) {
       console.error("[v0] Search failed:", err);
@@ -106,9 +108,11 @@ export default function CheckinPage() {
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
+
+      // After a short delay, reset to allow a new search
       setTimeout(() => {
         setSearchInput("");
-        setSelectedAttendee(null);
+        setSelectedAttendee(null); // this will show the search card again
       }, 2000);
     } catch (err) {
       console.error("[v0] Check-in failed:", err);
@@ -187,34 +191,35 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card */}
-        <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-              <Input
-                placeholder="Enter ticket number or name..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
-              />
+        {/* Search card – hidden when an attendee is successfully found */}
+        {!selectedAttendee && (
+          <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                <Input
+                  placeholder="Enter ticket number or name..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
+                />
+              </div>
+              <Button
+                onClick={handleSearch}
+                disabled={!searchInput || isSearching}
+                className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
+              >
+                {isSearching ? "Searching..." : "Search"}
+              </Button>
             </div>
-            <Button
-              onClick={handleSearch}
-              disabled={!searchInput || isSearching}
-              className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
-            >
-              {isSearching ? "Searching..." : "Search"}
-            </Button>
-          </div>
-        </Card>
+          </Card>
+        )}
 
-        {/* Selected attendee + map + check-in actions */}
+        {/* Selected attendee + map + check-in actions (search card hidden in this state) */}
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
               <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
                 Your assigned seat is{" "}
                 <strong className="text-primary">
