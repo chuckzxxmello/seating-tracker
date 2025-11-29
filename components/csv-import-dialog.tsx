@@ -30,6 +30,7 @@ export function CSVImportDialog({ onClose, onSuccess }: CSVImportDialogProps) {
       const content = event.target?.result as string
       setCSVContent(content)
       setParseErrors([])
+      setImportResult(null)
     }
     reader.readAsText(file)
   }
@@ -52,10 +53,10 @@ export function CSVImportDialog({ onClose, onSuccess }: CSVImportDialogProps) {
 
     try {
       setIsImporting(true)
-      const importResult = await batchImportAttendees(result.data)
-      setImportResult(importResult)
+      const res = await batchImportAttendees(result.data)
+      setImportResult(res)
 
-      if (importResult.failed === 0) {
+      if (res.failed === 0) {
         setTimeout(() => {
           onSuccess()
           onClose()
@@ -70,11 +71,38 @@ export function CSVImportDialog({ onClose, onSuccess }: CSVImportDialogProps) {
   }
 
   const handleDownloadTemplate = () => {
-    const template = `ticketNumber,name,email,region,category,table,seat
-TICKET001,John Doe,john@example.com,Luzon,VIP,1,1
-TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
+    // Matches generateCSV header format
+    const headers = [
+      "Ticket Number",
+      "Name",
+      "Email",
+      "Region",
+      "Category",
+      "Table",
+      "Seat",
+      "Check-in Status",
+      "Check-in Time",
+    ]
 
-    downloadCSV(template, "attendees_template.csv")
+    const exampleRows = [
+      // status/time can be blank; parseCSV ignores these columns
+      ["TICKET001", "John Doe", "john@example.com", "Luzon", "VIP", "1", "1", "", ""],
+      ["TICKET002", "Jane Smith", "jane@example.com", "Visayas", "Paying Guests", "1", "2", "", ""],
+    ]
+
+    const csvContent = [
+      headers.join(","),
+      ...exampleRows.map((r) =>
+        r
+          .map((v) => {
+            const s = String(v ?? "")
+            return `"${s.replace(/"/g, '""')}"` // quote + escape
+          })
+          .join(","),
+      ),
+    ].join("\n")
+
+    downloadCSV(csvContent, "attendees_template.csv")
   }
 
   return (
@@ -91,15 +119,20 @@ TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-slate-900 mb-2">Required CSV Format</h3>
-            <p className="text-slate-600 text-sm mb-2">Your CSV must include these columns:</p>
+            <p className="text-slate-600 text-sm mb-2">Your CSV should include at least these columns:</p>
             <ul className="text-slate-600 text-sm space-y-1 ml-4">
-              <li>• ticketNumber (required)</li>
-              <li>• name (required)</li>
-              <li>• email (optional)</li>
-              <li>• region (required: Luzon, Visayas, Mindanao, International)</li>
-              <li>• category (required: PMT, VIP, Paying Guests, Doctors/Dentists)</li>
-              <li>• table (optional)</li>
-              <li>• seat (optional)</li>
+              <li>• Ticket Number (required)</li>
+              <li>• Name (required)</li>
+              <li>• Email (optional – will be auto-filled if empty)</li>
+              <li>• Region (required: Luzon, Visayas, Mindanao, International)</li>
+              <li>
+                • Category (required: PMT, Doctors/Dentists, Partner Churches/MTLs, From other churches, Major Donors,
+                Gideonites, Paying Guests, WEYJ, VIP, Others)
+              </li>
+              <li>• Table (optional number)</li>
+              <li>• Seat (optional number)</li>
+              <li>• Check-in Status (optional, ignored on import)</li>
+              <li>• Check-in Time (optional, ignored on import)</li>
             </ul>
           </div>
 
