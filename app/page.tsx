@@ -28,13 +28,32 @@ type AttendeeRecord = {
   [key: string]: any;
 };
 
+const REGION_OPTIONS = ["All Regions", "Luzon", "Visayas", "Mindanao", "International"];
+
+const CATEGORY_OPTIONS = [
+  { value: "All Categories", label: "All Categories" },
+  { value: "PMT", label: "PMT" },
+  { value: "Doctors/Dentists", label: "Doctors/Dentists" },
+  { value: "Partner Churches/MTLs", label: "Partner Churches/MTLs" },
+  { value: "From other churches", label: "From other churches" },
+  { value: "Major Donors", label: "Major Donors" },
+  { value: "Gideonites", label: "Gideonites" },
+  { value: "Paying Guests", label: "Paying Guests" },
+  { value: "WEYJ", label: "WEYJ" },
+  { value: "VIP", label: "VIP" },
+  { value: "Others", label: "Others" },
+];
+
 export default function CheckinPage() {
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState("");
-  const [exactMatch, setExactMatch] = useState(false);
   const [selectedAttendee, setSelectedAttendee] = useState<AttendeeRecord | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [regionFilter, setRegionFilter] = useState<string>("All Regions");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All Categories");
+  const [seatFilter, setSeatFilter] = useState<string>("");
 
   // Background music (low volume, starts after first click)
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -56,33 +75,43 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
-  // ---- SMART MATCHING (same logic style as admin list) ----
-
-  const buildTokens = (q: string): string[] =>
-    q
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-
-  const matchesSearch = (att: AttendeeRecord, tokens: string[], isExact: boolean): boolean => {
-    if (tokens.length === 0) return true;
+  const matchesExactSearch = (att: AttendeeRecord, rawQuery: string): boolean => {
+    const q = rawQuery.trim().toLowerCase();
+    if (!q) return false;
 
     const name = (att.name ?? "").toLowerCase();
     const ticket = (att.ticketNumber ?? "").toLowerCase();
 
-    if (isExact) {
-      const q = tokens.join(" ");
-      return name === q || ticket === q;
+    // STRICT: must match full name or full ticket
+    return name === q || ticket === q;
+  };
+
+  const applyFilters = (list: AttendeeRecord[], rawQuery: string): AttendeeRecord[] => {
+    let filtered = list;
+
+    // exact search by full name or full ticket
+    filtered = filtered.filter((att) => matchesExactSearch(att, rawQuery));
+
+    // region filter
+    if (regionFilter !== "All Regions") {
+      filtered = filtered.filter((att) => (att.region ?? "") === regionFilter);
     }
 
-    return tokens.every((token) => {
-      if (token.length <= 2) {
-        // really short pieces only apply to ticket, not names
-        return ticket.includes(token);
+    // category filter
+    if (categoryFilter !== "All Categories") {
+      filtered = filtered.filter((att) => (att.category ?? "") === categoryFilter);
+    }
+
+    // seat filter
+    const seatTrim = seatFilter.trim();
+    if (seatTrim) {
+      const seatNum = Number.parseInt(seatTrim, 10);
+      if (!Number.isNaN(seatNum)) {
+        filtered = filtered.filter((att) => att.assignedSeat === seatNum);
       }
-      return name.includes(token) || ticket.includes(token);
-    });
+    }
+
+    return filtered;
   };
 
   const handleSearch = async () => {
@@ -96,19 +125,13 @@ export default function CheckinPage() {
     try {
       const results = (await searchAttendees(raw)) as AttendeeRecord[];
 
-      const tokens = buildTokens(raw);
-
-      let filtered = results;
-      if (tokens.length > 0) {
-        filtered = results.filter((att) => matchesSearch(att, tokens, exactMatch));
-      }
+      const filtered = applyFilters(results, raw);
 
       if (filtered.length > 0) {
-        // pick the first best match
-        setSelectedAttendee(filtered[0]);
+        setSelectedAttendee(filtered[0]); // pick first best match after filters
       } else {
         setError(
-          "No attendee found with that ticket number or name. Please check the spelling and try again.",
+          "No attendee found with that ticket number or name (given the current filters). Please check and try again.",
         );
       }
     } catch (err) {
@@ -120,7 +143,6 @@ export default function CheckinPage() {
   };
 
   const handleSearchAgain = () => {
-    // Bring back the search card
     setSelectedAttendee(null);
     setSearchInput("");
     setError(null);
@@ -152,8 +174,6 @@ export default function CheckinPage() {
 
       const now = new Date();
 
-      // Backend should also set checkedInTime (e.g., serverTimestamp()).
-      // If you update checkInAttendee to accept a time, you can pass `now` as 2nd arg.
       await checkInAttendee(selectedAttendee.id);
       await logAudit(
         "check_in",
@@ -248,15 +268,16 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – hidden when attendee is selected */}
+        {/* Search + filters card – hidden when attendee is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
-            <div className="flex flex-col gap-3">
+            <div className="space-y-4">
+              {/* Search row */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                   <Input
-                    placeholder="Enter ticket number or name..."
+                    placeholder="Enter ticket number or full name (exact match)..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -272,16 +293,59 @@ export default function CheckinPage() {
                 </Button>
               </div>
 
-              {/* Exact match toggle */}
-              <label className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={exactMatch}
-                  onChange={(e) => setExactMatch(e.target.checked)}
-                  className="h-3 w-3 md:h-4 md:w-4 rounded border-border bg-background"
-                />
-                <span>Exact match (full name or ticket only)</span>
-              </label>
+              {/* Filters row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Region filter */}
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-muted-foreground mb-1">
+                    Filter by Region
+                  </label>
+                  <select
+                    value={regionFilter}
+                    onChange={(e) => setRegionFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-foreground"
+                  >
+                    {REGION_OPTIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category filter */}
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-muted-foreground mb-1">
+                    Filter by Category
+                  </label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-foreground"
+                  >
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Seat filter */}
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-muted-foreground mb-1">
+                    Filter by Seat Number
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Seat #"
+                    value={seatFilter}
+                    onChange={(e) => setSeatFilter(e.target.value)}
+                    className="w-full h-10 text-sm bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
+                  />
+                </div>
+              </div>
             </div>
           </Card>
         )}
