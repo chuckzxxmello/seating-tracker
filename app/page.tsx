@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
 import { PathfindingVisualization } from "@/components/pathfinding-visualization";
 import {
@@ -56,10 +55,11 @@ export default function CheckinPage() {
     try {
       const results = await searchAttendees(searchInput.trim());
       if (results.length > 0) {
-        setSelectedAttendee(results[0]); // success → show map only (search card hidden)
+        // success → hide search card and show attendee + map
+        setSelectedAttendee(results[0]);
       } else {
         setError(
-          "No attendee found with that ticket number or name. Please check the spelling and try again."
+          "No attendee found with that ticket number or name. Please check the spelling and try again.",
         );
       }
     } catch (err) {
@@ -70,6 +70,13 @@ export default function CheckinPage() {
     }
   };
 
+  const handleSearchAgain = () => {
+    // Bring back the search card
+    setSelectedAttendee(null);
+    setSearchInput("");
+    setError(null);
+  };
+
   const handleCheckin = async () => {
     if (!selectedAttendee) return;
 
@@ -78,12 +85,12 @@ export default function CheckinPage() {
         const isVIP = selectedAttendee.category === "VIP";
         const capacity = await checkTableCapacity(
           selectedAttendee.assignedSeat,
-          isVIP
+          isVIP,
         );
 
         if (capacity.isFull) {
           setError(
-            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`
+            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`,
           );
           return;
         }
@@ -104,7 +111,7 @@ export default function CheckinPage() {
         selectedAttendee.assignedSeat,
         {
           name: selectedAttendee.name,
-        }
+        },
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
@@ -112,7 +119,7 @@ export default function CheckinPage() {
       // After a short delay, reset to allow a new search
       setTimeout(() => {
         setSearchInput("");
-        setSelectedAttendee(null); // this will show the search card again
+        setSelectedAttendee(null);
       }, 2000);
     } catch (err) {
       console.error("[v0] Check-in failed:", err);
@@ -141,7 +148,7 @@ export default function CheckinPage() {
         selectedAttendee.assignedSeat,
         {
           name: selectedAttendee.name,
-        }
+        },
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: false });
@@ -158,8 +165,7 @@ export default function CheckinPage() {
       {/* subtle star / twinkle overlay */}
       <div className="twinkle-layer" aria-hidden="true" />
 
-      {/* background music – IMPORTANT: replace src with your own mp3 file.
-          You can't directly use a YouTube URL as an <audio> src. */}
+      {/* background music */}
       <audio
         ref={audioRef}
         src="/audio/legacy-night-bgm.mp3"
@@ -168,11 +174,11 @@ export default function CheckinPage() {
       />
 
       {/* Sticky header if you want controls later */}
-      <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm"></header>
+      <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
 
       {/* Main content */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14 space-y-8 md:space-y-10">
-        {/* Logo fade-in */}
+        {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
           <Image
             src="/images/home-mark.png"
@@ -191,7 +197,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – hidden when an attendee is successfully found */}
+        {/* Search card – hidden when attendee is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -216,7 +222,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Selected attendee + map + check-in actions (search card hidden in this state) */}
+        {/* Selected attendee + map + check-in actions */}
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -230,6 +236,15 @@ export default function CheckinPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {/* Search Again button */}
+                <Button
+                  onClick={handleSearchAgain}
+                  disabled={isSearching}
+                  className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
+                >
+                  Search Again
+                </Button>
+
                 {!selectedAttendee.checkedIn ? (
                   <Button
                     onClick={handleCheckin}
