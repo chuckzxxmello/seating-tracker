@@ -204,16 +204,6 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                 />
               </div>
               <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">Email Address</label>
-                <Input
-                  type="email"
-                  value={editData.email}
-                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                  className="bg-white border-blue-200"
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div>
                 <label className="text-slate-700 text-sm font-medium block mb-2">Ticket Number</label>
                 <Input disabled value={editData.ticketNumber} className="bg-gray-50 border-blue-200" />
                 <p className="text-slate-500 text-xs mt-1">Ticket number cannot be changed</p>
