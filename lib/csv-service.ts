@@ -8,6 +8,8 @@ export interface AttendeeCSVData {
   category: string;
   table?: number;
   seat?: number;
+  checkedIn?: boolean;      // NEW
+  checkedInTime?: string;   // NEW – stored as string (ISO or raw from CSV)
 }
 
 export interface ParseResult {
@@ -80,6 +82,18 @@ export function parseCSV(csvContent: string): ParseResult {
   const tableIdx = findIndex(["table"]);
   const seatIdx = findIndex(["seat"]);
 
+  // NEW: detect check-in columns (as exported by generateCSV)
+  const checkInStatusIdx = findIndex([
+    "check-in status",
+    "check in status",
+    "checkin status",
+  ]);
+  const checkInTimeIdx = findIndex([
+    "check-in time",
+    "check in time",
+    "checkin time",
+  ]);
+
   // Required columns
   const missingRequired: string[] = [];
   if (ticketIdx === -1) missingRequired.push("ticketNumber");
@@ -133,6 +147,12 @@ export function parseCSV(csvContent: string): ParseResult {
         ? Number.parseInt(values[seatIdx], 10)
         : undefined;
 
+    // NEW: read check-in columns if present
+    const checkInStatusRaw =
+      checkInStatusIdx >= 0 ? values[checkInStatusIdx] ?? "" : "";
+    const checkInTimeRaw =
+      checkInTimeIdx >= 0 ? values[checkInTimeIdx] ?? "" : "";
+
     // Validate row
     if (!ticket) {
       errors.push(`Row ${rowNum}: Missing ticket number`);
@@ -160,6 +180,27 @@ export function parseCSV(csvContent: string): ParseResult {
 
     const email = rawEmail || `${ticket}@event.local`;
 
+    // NEW: normalize check-in status to boolean
+    let checkedIn: boolean | undefined = undefined;
+    if (checkInStatusRaw) {
+      const s = checkInStatusRaw.trim().toLowerCase();
+      if (
+        s === "checked in" ||
+        s === "check in" ||
+        s === "true" ||
+        s === "yes"
+      ) {
+        checkedIn = true;
+      } else if (
+        s === "pending" ||
+        s === "false" ||
+        s === "no" ||
+        s === "-"
+      ) {
+        checkedIn = false;
+      }
+    }
+
     data.push({
       ticketNumber: ticket,
       name,
@@ -168,6 +209,8 @@ export function parseCSV(csvContent: string): ParseResult {
       category: categoryClean,
       table,
       seat,
+      checkedIn,
+      checkedInTime: checkInTimeRaw || undefined,
     });
   }
 
@@ -225,8 +268,9 @@ export function generateCSV(attendees: any[]): string {
     a.name,
     a.region,
     a.category,
-    a.table || "-",
-    a.assignedSeat || "-",
+    a.table ?? "-",
+    // support both `seat` and `assignedSeat`
+    a.seat ?? a.assignedSeat ?? "-",
     a.checkedIn ? "Checked In" : "Pending",
     formatCheckInTime(a.checkedInTime),
   ]);
