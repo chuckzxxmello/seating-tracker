@@ -161,16 +161,6 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
                 />
               </div>
               <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">Email Address *</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="bg-white border-blue-200"
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div>
                 <label className="text-slate-700 text-sm font-medium block mb-2">Region *</label>
                 <select
                   value={formData.region}
