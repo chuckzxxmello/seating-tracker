@@ -29,29 +29,57 @@ export function parseCSV(csvContent: string): ParseResult {
     };
   }
 
-  const headerLine = lines[0].toLowerCase();
-  const headers = headerLine.split(",").map((h) => h.trim());
+  // Use lowercased headers for matching, but keep indexes
+  const headerRaw = lines[0];
+  const headers = headerRaw.split(",").map((h) => h.trim().toLowerCase());
 
-  // ticketNumber, name, region, category are required
-  const requiredHeaders = ["ticketnumber", "name", "region", "category"];
-  const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
+  // Helper: find index for any of these candidate header names
+  const findIndex = (candidates: string[]): number => {
+    for (const c of candidates) {
+      const idx = headers.indexOf(c);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
 
-  if (missingHeaders.length > 0) {
+  // Resolve indices (support both "ticketnumber" and "ticket number")
+  const ticketIdx = findIndex(["ticketnumber", "ticket number", "ticket_no", "ticket no"]);
+  const nameIdx = findIndex(["name"]);
+  const emailIdx = findIndex(["email"]); // optional
+  const regionIdx = findIndex(["region"]);
+  const categoryIdx = findIndex(["category"]);
+  const tableIdx = findIndex(["table"]);
+  const seatIdx = findIndex(["seat"]);
+
+  // Check required columns
+  const missingRequired: string[] = [];
+  if (ticketIdx === -1) missingRequired.push("ticketNumber");
+  if (nameIdx === -1) missingRequired.push("name");
+  if (regionIdx === -1) missingRequired.push("region");
+  if (categoryIdx === -1) missingRequired.push("category");
+
+  if (missingRequired.length > 0) {
     return {
       valid: false,
       data: [],
-      errors: [`Missing required columns: ${missingHeaders.join(", ")}`],
+      errors: [`Missing required columns: ${missingRequired.join(", ")}`],
     };
   }
 
-  // Find column indices (email is OPTIONAL now)
-  const ticketIdx = headers.indexOf("ticketnumber");
-  const nameIdx = headers.indexOf("name");
-  const emailIdx = headers.indexOf("email"); // may be -1
-  const regionIdx = headers.indexOf("region");
-  const categoryIdx = headers.indexOf("category");
-  const tableIdx = headers.indexOf("table");
-  const seatIdx = headers.indexOf("seat");
+  // Allowed values (lowercased)
+  const validRegions = ["luzon", "visayas", "mindanao", "international"];
+  const validCategories = [
+    "pmt",
+    "vip",
+    "paying guests",
+    "doctors/dentists",
+    "partner churches/mtls",
+    "from other churches",
+    "major donors",
+    "gideonites",
+    "weyj",
+    "others",
+  ];
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -61,42 +89,35 @@ export function parseCSV(csvContent: string): ParseResult {
     const values = line.split(",").map((v) => v.trim());
     const rowNum = i + 1;
 
-    const ticket = values[ticketIdx]?.toUpperCase() || "";
-    const name = values[nameIdx] || "";
-    const rawEmail = emailIdx >= 0 ? values[emailIdx] : "";
-    const region = values[regionIdx] || "";
-    const category = values[categoryIdx] || "";
-    const table = tableIdx >= 0 && values[tableIdx] ? Number.parseInt(values[tableIdx]) : undefined;
-    const seat = seatIdx >= 0 && values[seatIdx] ? Number.parseInt(values[seatIdx]) : undefined;
+    const ticket = (values[ticketIdx] ?? "").toUpperCase();
+    const name = values[nameIdx] ?? "";
+    const rawEmail = emailIdx >= 0 ? values[emailIdx] ?? "" : "";
+    const region = regionIdx >= 0 ? values[regionIdx] ?? "" : "";
+    const category = categoryIdx >= 0 ? values[categoryIdx] ?? "" : "";
+    const table =
+      tableIdx >= 0 && values[tableIdx] ? Number.parseInt(values[tableIdx], 10) : undefined;
+    const seat =
+      seatIdx >= 0 && values[seatIdx] ? Number.parseInt(values[seatIdx], 10) : undefined;
 
     // Validate row
     if (!ticket) {
       errors.push(`Row ${rowNum}: Missing ticket number`);
       continue;
     }
+
     if (!name) {
       errors.push(`Row ${rowNum}: Missing name`);
       continue;
     }
-    if (!region || !["Luzon", "Visayas", "Mindanao", "International"].includes(region)) {
+
+    const regionLc = region.toLowerCase();
+    if (!region || !validRegions.includes(regionLc)) {
       errors.push(`Row ${rowNum}: Invalid region "${region}"`);
       continue;
     }
-    if (
-      !category ||
-      ![
-        "PMT",
-        "VIP",
-        "Paying Guests",
-        "Doctors/Dentists",
-        "Partner Churches/MTLs",
-        "From other churches",
-        "Major Donors",
-        "Gideonites",
-        "WEYJ",
-        "Others",
-      ].includes(category)
-    ) {
+
+    const categoryLc = category.toLowerCase();
+    if (!category || !validCategories.includes(categoryLc)) {
       errors.push(`Row ${rowNum}: Invalid category "${category}"`);
       continue;
     }
@@ -126,11 +147,16 @@ function formatCheckInTime(value: any): string {
   if (!value) return "-";
 
   // Firestore Timestamp
-  if (typeof value === "object" && value !== null && "toDate" in value && typeof value.toDate === "function") {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (value as any).toDate === "function"
+  ) {
     try {
-      return value.toDate().toISOString();
+      return (value as any).toDate().toISOString();
     } catch {
-      /* ignore */
+      // ignore
     }
   }
 
@@ -146,7 +172,7 @@ function formatCheckInTime(value: any): string {
 }
 
 export function generateCSV(attendees: any[]): string {
-  // Removed Email column; added Check-in Time
+  // No Email column; include Check-in Time
   const headers = [
     "Ticket Number",
     "Name",
