@@ -18,6 +18,12 @@ interface PathfindingVisualizationProps {
   seatId: number | null;
   imageSrc?: string;
   showBackground?: boolean;
+  /**
+   * isVip:
+   * true  = show only VIP seat
+   * false = show only regular seat
+   * undefined = ADMIN MODE → show BOTH VIP + regular seats
+   */
   isVip?: boolean;
 }
 
@@ -25,7 +31,7 @@ export function PathfindingVisualization({
   seatId,
   imageSrc,
   showBackground = false,
-  isVip = false,
+  isVip, // ⬅ no default anymore!
 }: PathfindingVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,16 +61,16 @@ export function PathfindingVisualization({
 
   // tuning
   const PAN_SPEED = 1.2;
-  const WHEEL_ZOOM_IN = 1.08; // was 1.2
-  const WHEEL_ZOOM_OUT = 0.92; // was 0.8
-  const DOUBLE_TAP_ZOOM = 1.15; // was 1.6
+  const WHEEL_ZOOM_IN = 1.08;
+  const WHEEL_ZOOM_OUT = 0.92;
+  const DOUBLE_TAP_ZOOM = 1.15;
 
-  // Load venue nodes from Firebase
+  // Load venue nodes
   useEffect(() => {
     async function loadVenueData() {
       try {
         const venueMap = await getVenueMap();
-        if (venueMap && venueMap.nodes) {
+        if (venueMap?.nodes) {
           setVenueNodes(venueMap.nodes);
           setError(null);
         } else {
@@ -80,20 +86,28 @@ export function PathfindingVisualization({
     loadVenueData();
   }, []);
 
-  // Validate the requested seat exists
+  // FIXED — correctly detect seat based on (VIP, regular, admin)
   useEffect(() => {
     if (!seatId || venueNodes.length === 0) return;
 
     try {
-      const targetTable = venueNodes.find((node) => {
-        const expectedType = isVip ? "vip-table" : "table";
-        if (node.type !== expectedType) return false;
+      const allowedTypes =
+        isVip === true
+          ? ["vip-table"]
+          : isVip === false
+          ? ["table"]
+          : ["table", "vip-table"]; // ADMIN MODE → show both
+
+      const matches = venueNodes.filter((node) => {
+        if (!allowedTypes.includes(node.type)) return false;
         const tableNum = node.label.match(/\d+/)?.[0];
         return tableNum === String(seatId);
       });
 
-      if (!targetTable) {
-        setError(`${isVip ? "VIP " : ""}Table ${seatId} not found`);
+      if (matches.length === 0) {
+        if (isVip === true) setError(`VIP table ${seatId} not found`);
+        else if (isVip === false) setError(`Table ${seatId} not found`);
+        else setError(`No VIP or regular table ${seatId} found`);
       } else {
         setError(null);
       }
@@ -103,8 +117,7 @@ export function PathfindingVisualization({
     }
   }, [seatId, venueNodes, isVip]);
 
-  // --- Zoom / pan helpers ----------------------------------------------------
-
+  // -------- zoom & pan helpers --------
   const clampZoom = (z: number) => Math.min(4, Math.max(0.5, z));
 
   const zoomAtPoint = (factor: number, clientX: number, clientY: number) => {
@@ -123,7 +136,6 @@ export function PathfindingVisualization({
       setPan((prevPan) => {
         const worldX = (x - prevPan.x) / prevZoom;
         const worldY = (y - prevPan.y) / prevZoom;
-
         return {
           x: x - worldX * targetZoom,
           y: y - worldY * targetZoom,
@@ -143,7 +155,6 @@ export function PathfindingVisualization({
 
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
-
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
@@ -151,13 +162,10 @@ export function PathfindingVisualization({
 
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
-    if (!isFullscreen) {
-      handleResetView();
-    }
+    if (!isFullscreen) handleResetView();
   };
 
-  // --- Double-tap / double-click detection ----------------------------------
-
+  // -------- Double tap / click --------
   const handleTouchDoubleTapCheck = (
     e: React.PointerEvent<HTMLCanvasElement>,
   ) => {
@@ -186,19 +194,18 @@ export function PathfindingVisualization({
       lastTapTimeRef.current = null;
       lastTapPosRef.current = null;
       return true;
-    } else {
-      lastTapTimeRef.current = now;
-      lastTapPosRef.current = { x: e.clientX, y: e.clientY };
-      return false;
     }
+
+    lastTapTimeRef.current = now;
+    lastTapPosRef.current = { x: e.clientX, y: e.clientY };
+    return false;
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     zoomAtPoint(DOUBLE_TAP_ZOOM, e.clientX, e.clientY);
   };
 
-  // --- Pointer handlers: drag + pinch ---------------------------------------
-
+  // -------- Pointer events --------
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === "touch") {
       const used = handleTouchDoubleTapCheck(e);
@@ -218,8 +225,7 @@ export function PathfindingVisualization({
     } else if (pointers.length === 2) {
       const [, p1] = pointers[0];
       const [, p2] = pointers[1];
-      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      lastPinchDistanceRef.current = dist;
+      lastPinchDistanceRef.current = Math.hypot(p2.x - p1.x, p2.y - p1.y);
       dragPointerIdRef.current = null;
       lastDragPosRef.current = null;
     }
@@ -230,7 +236,6 @@ export function PathfindingVisualization({
     if (!pointersRef.current.has(id)) return;
 
     pointersRef.current.set(id, { x: e.clientX, y: e.clientY });
-
     const pointers = [...pointersRef.current.values()];
 
     if (
@@ -243,22 +248,16 @@ export function PathfindingVisualization({
 
       lastDragPosRef.current = { x: e.clientX, y: e.clientY };
 
-      setPan((prev) => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }));
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
     } else if (pointers.length >= 2 && lastPinchDistanceRef.current) {
       e.preventDefault();
       const [p1, p2] = pointers;
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      if (dist === 0) return;
-
-      const factor = dist / lastPinchDistanceRef.current;
-      const centerX = (p1.x + p2.x) / 2;
-      const centerY = (p1.y + p2.y) / 2;
-
-      zoomAtPoint(factor, centerX, centerY);
-      lastPinchDistanceRef.current = dist;
+      if (dist !== 0) {
+        const factor = dist / lastPinchDistanceRef.current;
+        zoomAtPoint(factor, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+        lastPinchDistanceRef.current = dist;
+      }
     }
   };
 
@@ -281,35 +280,37 @@ export function PathfindingVisualization({
     }
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    endPointer(e);
-  };
+  const handlePointerUp = endPointer;
+  const handlePointerCancel = endPointer;
 
-  const handlePointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    endPointer(e);
-  };
-
-  // --- Native wheel listener to prevent page scroll -------------------------
-
+  // -------- Prevent page scrolling on wheel zoom --------
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheelNative = (e: WheelEvent) => {
-      e.preventDefault(); // stop document/body scroll
+      e.preventDefault();
       const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
       zoomAtPoint(factor, e.clientX, e.clientY);
     };
 
     container.addEventListener("wheel", handleWheelNative, { passive: false });
-
-    return () => {
+    return () =>
       container.removeEventListener("wheel", handleWheelNative);
-    };
-    // Re-attach when switching between normal view and fullscreen
   }, [isFullscreen]);
 
-  // --- Drawing --------------------------------------------------------------
+  // -------- Drawing: FIXED seat selection logic --------
+
+  const isSeatNodeSelected = (node: VenueNode) => {
+    const tableNum = node.label.match(/\d+/)?.[0];
+    if (!seatId || tableNum !== String(seatId)) return false;
+
+    if (isVip === true) return node.type === "vip-table";
+    if (isVip === false) return node.type === "table";
+
+    // ADMIN VIEW → highlight BOTH
+    return node.type === "table" || node.type === "vip-table";
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -325,10 +326,6 @@ export function PathfindingVisualization({
     const rawMinY = Math.min(...allY);
     const rawMaxY = Math.max(...allY);
 
-    const rawWidth = rawMaxX - rawMinX;
-    const rawHeight = rawMaxY - rawMinY;
-
-    // Always use full map bounds
     const margin = 40;
     const minX = rawMinX - margin;
     const maxX = rawMaxX + margin;
@@ -344,36 +341,27 @@ export function PathfindingVisualization({
       parent?.clientHeight ??
       Math.ceil((contentHeight / contentWidth) * cssWidth);
 
-    const dpr =
-      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const dpr = window.devicePixelRatio || 1;
 
-    // Set CSS size
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
-
-    // Set internal pixel size for HiDPI
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
 
-    // Reset transform & paint background
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#0b1020";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Scale so the whole map fits inside the container
     const scaleX = cssWidth / contentWidth;
     const scaleY = cssHeight / contentHeight;
     const contentScale = Math.min(scaleX, scaleY);
 
-    // world size of viewport at this scale
     const viewWidthWorld = cssWidth / contentScale;
     const viewHeightWorld = cssHeight / contentScale;
 
-    // offsets so content is centered horizontally/vertically
     const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
     const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
 
-    // shifted mins for centering
     const centeredMinX = minX - offsetXWorld;
     const centeredMinY = minY - offsetYWorld;
 
@@ -388,7 +376,8 @@ export function PathfindingVisualization({
       y: (y - centeredMinY) * contentScale,
     });
 
-    const drawNode = (node: VenueNode, highlight = false) => {
+    const drawNode = (node: VenueNode) => {
+      const highlight = isSeatNodeSelected(node);
       const pos = toCanvas(node.x, node.y);
 
       if (node.type === "stage") {
@@ -490,17 +479,13 @@ export function PathfindingVisualization({
         ctx.fillText("E", pos.x, pos.y);
       } else if (node.type === "table" || node.type === "vip-table") {
         const tableNum = node.label.match(/\d+/)?.[0];
-        const isSelected =
-          tableNum === String(seatId) &&
-          ((isVip && node.type === "vip-table") ||
-            (!isVip && node.type === "table"));
 
         ctx.fillStyle = node.type === "vip-table" ? "#DC2626" : "#1E40AF";
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, 12 * contentScale, 0, Math.PI * 2);
         ctx.fill();
 
-        if (isSelected) {
+        if (highlight) {
           ctx.strokeStyle = "#FBBF24";
           ctx.lineWidth = 4;
           ctx.beginPath();
@@ -516,17 +501,12 @@ export function PathfindingVisualization({
       }
     };
 
-    venueNodes.forEach((node) => {
-      const tableNum = node.label.match(/\d+/)?.[0];
-      const isSelected =
-        tableNum === String(seatId) &&
-        ((isVip && node.type === "vip-table") ||
-          (!isVip && node.type === "table"));
-      drawNode(node, isSelected);
-    });
+    venueNodes.forEach(drawNode);
 
     ctx.restore();
   }, [seatId, venueNodes, isVip, zoom, pan]);
+
+  // -------- UI Rendering --------
 
   if (isLoading) {
     return (
@@ -564,7 +544,7 @@ export function PathfindingVisualization({
     onPointerCancel: handlePointerCancel,
     onPointerLeave: handlePointerUp,
     onDoubleClick: handleDoubleClick,
-    style: { touchAction: "none" as const }, // disable touch scrolling on canvas
+    style: { touchAction: "none" as const },
   } as const;
 
   return (
@@ -606,7 +586,7 @@ export function PathfindingVisualization({
         </div>
       )}
 
-      {/* Normal (embedded) view */}
+      {/* Embedded view */}
       <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
         {error && (
           <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
