@@ -100,23 +100,62 @@ export function parseCSV(csvContent: string): ParseResult {
   }
 }
 
-export function generateCSV(attendees: any[]): string {
-  const headers = ["Ticket Number", "Name", "Email", "Region", "Category", "Table", "Seat", "Check-in Status"]
+// ---------- CSV EXPORT (with check-in time) ----------
 
-  const rows = attendees.map((a) => [
-    a.ticketNumber,
-    a.name,
-    a.email,
-    a.region,
-    a.category,
-    a.table || "-",
-    a.assignedSeat || "-",
-    a.checkedIn ? "Checked In" : "Pending",
-  ])
+function formatCheckInTime(raw: any): string {
+  if (!raw) return ""
+
+  // Firestore Timestamp
+  if (raw && typeof raw.toDate === "function") {
+    const d: Date = raw.toDate()
+    return d.toISOString()
+  }
+
+  // JS Date
+  if (raw instanceof Date) {
+    return raw.toISOString()
+  }
+
+  // String or other primitive
+  return String(raw)
+}
+
+export function generateCSV(attendees: any[]): string {
+  // Order: Name | Check-in Time | other important fields
+  const headers = [
+    "Name",
+    "Check-in Time",
+    "Ticket Number",
+    "Email",
+    "Region",
+    "Category",
+    "Table",
+    "Seat",
+    "Check-in Status",
+  ]
+
+  const rows = attendees.map((a) => {
+    const table = a.table || "-"
+    const seat = a.assignedSeat || a.seat || "-"
+    const status = a.checkedIn ? "Checked In" : "Pending"
+    const checkInTime = formatCheckInTime(a.checkedInTime)
+
+    return [
+      a.name || "",
+      checkInTime,
+      a.ticketNumber || "",
+      a.email || "",
+      a.region || "",
+      a.category || "",
+      table,
+      seat,
+      status,
+    ]
+  })
 
   const csvContent = [
     headers.join(","),
-    ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")),
+    ...rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")),
   ].join("\n")
 
   return csvContent
@@ -124,8 +163,8 @@ export function generateCSV(attendees: any[]): string {
 
 export function downloadCSV(csvContent: string, filename: string): void {
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const link = document.createElement("a")
   const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
 
   link.setAttribute("href", url)
   link.setAttribute("download", filename)
@@ -134,4 +173,5 @@ export function downloadCSV(csvContent: string, filename: string): void {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
