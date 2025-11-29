@@ -591,10 +591,6 @@ export function PathfindingVisualization({
               <h3 className="font-semibold text-sm md:text-base">
               Venue Map
               </h3>
-              <span className="block md:inline text-xs md:text-sm">
-                {" "}
-                - Highlighted on the map below
-              </span>
             </p>
             <Button
               variant="ghost"
