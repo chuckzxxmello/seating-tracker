@@ -17,7 +17,7 @@ interface Attendee {
   table?: number
   assignedSeat?: number
   checkedIn: boolean
-  email: string
+  // email removed
 }
 
 interface AttendeeEditorProps {
@@ -50,7 +50,7 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
     const isKnownCategory =
       !!attendee.category &&
       CATEGORY_OPTIONS.some(
-        (opt) => opt.value === attendee.category && opt.value !== "Others"
+        (opt) => opt.value === attendee.category && opt.value !== "Others",
       )
 
     // If category is one of our known options (except "Others"), no custom text
@@ -110,7 +110,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
         const capacity = await checkTableCapacity(tableNumber, isVIP)
 
         if (capacity.isFull) {
-          setError(`Table ${tableNumber} is at full capacity (${capacity.max} seats). Cannot assign seat.`)
+          setError(
+            `Table ${tableNumber} is at full capacity (${capacity.max} seats). Cannot assign seat.`,
+          )
           return
         }
       } catch (err) {
@@ -126,20 +128,29 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
       await updateAttendee(attendee.id, {
         name: editData.name.trim(),
-        email: editData.email.trim(),
+        // email removed from payload
         region: editData.region,
         category: categoryToSave, // store final category (custom if needed)
         assignedSeat: editData.assignedSeat || null,
       })
 
-      await logAudit("admin_edit_attendee", adminEmail, editData.ticketNumber, editData.assignedSeat || null, {
-        changes: {
-          name: editData.name !== attendee.name ? editData.name : undefined,
-          region: editData.region !== attendee.region ? editData.region : undefined,
-          category: categoryToSave !== attendee.category ? categoryToSave : undefined,
-          assignedSeat: editData.assignedSeat !== attendee.assignedSeat ? editData.assignedSeat : undefined,
+      await logAudit(
+        "admin_edit_attendee",
+        adminEmail,
+        editData.ticketNumber,
+        editData.assignedSeat || null,
+        {
+          changes: {
+            name: editData.name !== attendee.name ? editData.name : undefined,
+            region: editData.region !== attendee.region ? editData.region : undefined,
+            category: categoryToSave !== attendee.category ? categoryToSave : undefined,
+            assignedSeat:
+              editData.assignedSeat !== attendee.assignedSeat
+                ? editData.assignedSeat
+                : undefined,
+          },
         },
-      })
+      )
 
       onSave()
       onClose()
@@ -159,9 +170,15 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
       setError(null)
 
       await cancelCheckIn(attendee.id)
-      await logAudit("cancel_check_in", adminEmail, editData.ticketNumber, editData.assignedSeat || null, {
-        reason: "Admin cancelled check-in",
-      })
+      await logAudit(
+        "cancel_check_in",
+        adminEmail,
+        editData.ticketNumber,
+        editData.assignedSeat || null,
+        {
+          reason: "Admin cancelled check-in",
+        },
+      )
 
       setEditData({ ...editData, checkedIn: false })
       onSave()
@@ -178,7 +195,10 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-6 border-b border-blue-200 sticky top-0 bg-white">
           <h2 className="text-2xl font-bold text-slate-900">Edit Attendee</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -192,27 +212,45 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
           {/* Personal Information Section */}
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Personal Information</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Personal Information
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">Full Name</label>
+                <label className="text-slate-700 text-sm font-medium block mb-2">
+                  Full Name
+                </label>
                 <Input
                   value={editData.name}
-                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  onChange={(e) =>
+                    setEditData({ ...editData, name: e.target.value })
+                  }
                   className="bg-white border-blue-200"
                   placeholder="Enter full name"
                 />
               </div>
               <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">Ticket Number</label>
-                <Input disabled value={editData.ticketNumber} className="bg-gray-50 border-blue-200" />
-                <p className="text-slate-500 text-xs mt-1">Ticket number cannot be changed</p>
+                <label className="text-slate-700 text-sm font-medium block mb-2">
+                  Ticket Number
+                </label>
+                <Input
+                  disabled
+                  value={editData.ticketNumber}
+                  className="bg-gray-50 border-blue-200"
+                />
+                <p className="text-slate-500 text-xs mt-1">
+                  Ticket number cannot be changed
+                </p>
               </div>
               <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">Region</label>
+                <label className="text-slate-700 text-sm font-medium block mb-2">
+                  Region
+                </label>
                 <select
                   value={editData.region}
-                  onChange={(e) => setEditData({ ...editData, region: e.target.value })}
+                  onChange={(e) =>
+                    setEditData({ ...editData, region: e.target.value })
+                  }
                   className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
                 >
                   <option value="">Select Region</option>
@@ -225,7 +263,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
               {/* Category (mirrors AddAttendee behaviour) */}
               <div className="md:col-span-2">
-                <label className="text-slate-700 text-sm font-medium block mb-2">Category</label>
+                <label className="text-slate-700 text-sm font-medium block mb-2">
+                  Category
+                </label>
                 <select
                   value={editData.category}
                   onChange={(e) =>
@@ -234,7 +274,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                       category: e.target.value,
                       // reset custom category if they leave "Others"
                       customCategory:
-                        e.target.value === "Others" ? editData.customCategory : "",
+                        e.target.value === "Others"
+                          ? editData.customCategory
+                          : "",
                     })
                   }
                   className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
@@ -255,7 +297,10 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                     <Input
                       value={editData.customCategory || ""}
                       onChange={(e) =>
-                        setEditData({ ...editData, customCategory: e.target.value })
+                        setEditData({
+                          ...editData,
+                          customCategory: e.target.value,
+                        })
                       }
                       className="bg-white border-blue-200"
                       placeholder="Enter custom category"
@@ -268,7 +313,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
           {/* Seating Arrangement Section */}
           <div className="border-t border-blue-200 pt-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Seating Arrangement</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Seating Arrangement
+            </h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="text-slate-700 text-sm font-medium block mb-2">
@@ -282,7 +329,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                   onChange={(e) =>
                     setEditData({
                       ...editData,
-                      assignedSeat: e.target.value ? Number.parseInt(e.target.value) : undefined,
+                      assignedSeat: e.target.value
+                        ? Number.parseInt(e.target.value)
+                        : undefined,
                     })
                   }
                   className="bg-white border-blue-200"
@@ -301,7 +350,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
           <div className="border-t border-blue-200 pt-6">
             <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div>
-                <p className="text-slate-900 font-medium text-sm">Check-in Status</p>
+                <p className="text-slate-900 font-medium text-sm">
+                  Check-in Status
+                </p>
                 <p className="text-slate-600 text-xs mt-1">
                   {editData.checkedIn ? "Checked in" : "Pending check-in"}
                 </p>
@@ -309,7 +360,9 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
               <div className="flex items-center gap-3">
                 <div
                   className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    editData.checkedIn ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                    editData.checkedIn
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-amber-100 text-amber-700"
                   }`}
                 >
                   {editData.checkedIn ? "Checked In" : "Pending"}
@@ -331,7 +384,11 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
         </div>
 
         <div className="p-6 border-t border-blue-200 bg-blue-50 flex gap-3 justify-end sticky bottom-0">
-          <Button onClick={onClose} variant="outline" className="border-blue-200 text-blue-600 bg-transparent">
+          <Button
+            onClick={onClose}
+            variant="outline"
+            className="border-blue-200 text-blue-600 bg-transparent"
+          >
             Cancel
           </Button>
           <Button
