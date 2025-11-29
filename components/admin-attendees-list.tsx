@@ -27,12 +27,17 @@ interface AdminAttendeesListProps {
   adminEmail?: string
 }
 
+type StatusFilter = "All" | "Checked In" | "Pending"
+
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [exactMatch, setExactMatch] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState("All Regions")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All")
+  const [categoryFilter, setCategoryFilter] = useState("All Categories")
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(["All Categories"])
   const [isLoading, setIsLoading] = useState(true)
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null)
   const [selectedSeatForPath, setSelectedSeatForPath] = useState<number | null>(null)
@@ -46,6 +51,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
   useEffect(() => {
     loadAttendees()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadAttendees = async () => {
@@ -53,7 +59,25 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       setIsLoading(true)
       const data = await getAttendees()
       setAttendees(data)
-      filterAttendees(data, searchQuery, selectedRegion, exactMatch)
+
+      // build category options dynamically
+      const cats = Array.from(
+        new Set(
+          data
+            .map((a) => a.category?.toString().trim())
+            .filter((c): c is string => !!c && c.length > 0),
+        ),
+      ).sort()
+
+      setCategoryOptions(["All Categories", ...cats])
+
+      filterAttendees(data, {
+        search: searchQuery,
+        region: selectedRegion,
+        exactMatch,
+        status: statusFilter,
+        category: categoryFilter,
+      })
     } catch (error) {
       console.error("[v0] Error loading attendees:", error)
     } finally {
@@ -61,74 +85,141 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
-  const matchesSearch = (att: Attendee, q: string, isExact: boolean): boolean => {
-    if (!q) return true
+  /**
+   * Smart matching logic.
+   * - Exact mode: full string must equal full name OR full ticket.
+   * - Default: query is split into tokens; every token must match
+   *   either name or ticket.
+   *   - VERY short tokens (<=2 chars) are **only** checked against ticket
+   *     to avoid "Kuya B" → "Kuya Bernard Macas" type matches.
+   */
+  const matchesSearch = (att: Attendee, tokens: string[], isExact: boolean): boolean => {
+    if (tokens.length === 0) return true
+
     const name = (att.name ?? "").toLowerCase()
     const ticket = (att.ticketNumber ?? "").toLowerCase()
 
     if (isExact) {
-      // ✅ exact match on full name OR full ticket
+      const q = tokens.join(" ")
       return name === q || ticket === q
     }
 
-    // default: partial contains
-    return name.includes(q) || ticket.includes(q)
+    return tokens.every((token) => {
+      if (token.length <= 2) {
+        // short tokens: only check ticket to keep name matching sane
+        return ticket.includes(token)
+      }
+      return name.includes(token) || ticket.includes(token)
+    })
   }
 
   const filterAttendees = (
     attendeeList: Attendee[],
-    search: string,
-    region: string,
-    isExact: boolean,
+    opts: {
+      search: string
+      region: string
+      exactMatch: boolean
+      status: StatusFilter
+      category: string
+    },
   ): Attendee[] => {
-    const q = search.trim().toLowerCase()
+    const { search, region, exactMatch: isExact, status, category } = opts
 
-    let filtered = attendeeList.filter((att) => matchesSearch(att, q, isExact))
+    const tokens = search
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
 
+    let filtered = attendeeList
+
+    // search filter
+    if (tokens.length > 0) {
+      filtered = filtered.filter((att) => matchesSearch(att, tokens, isExact))
+    }
+
+    // region filter
     if (region !== "All Regions") {
       filtered = filtered.filter((att) => att.region === region)
+    }
+
+    // category filter
+    if (category !== "All Categories") {
+      filtered = filtered.filter((att) => (att.category ?? "") === category)
+    }
+
+    // status filter
+    if (status === "Checked In") {
+      filtered = filtered.filter((att) => !!att.checkedIn)
+    } else if (status === "Pending") {
+      filtered = filtered.filter((att) => !att.checkedIn)
     }
 
     setFilteredAttendees(filtered)
     return filtered
   }
 
-  const syncPathSelection = (
-    list: Attendee[],
-    search: string,
-    isExact: boolean,
-  ) => {
-    const q = search.trim().toLowerCase()
-    if (!q) {
+  const syncPathSelection = (list: Attendee[], search: string, isExact: boolean) => {
+    const tokens = search
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+
+    if (tokens.length === 0) {
       setSelectedSeatForPath(null)
       setSelectedAttendeeIsVip(false)
       return
     }
 
-    const match = list.find((att) => matchesSearch(att, q, isExact))
+    const match = list.find((att) => matchesSearch(att, tokens, isExact))
     setSelectedSeatForPath(match?.assignedSeat ?? null)
     setSelectedAttendeeIsVip(match?.category === "VIP")
   }
 
+  const recomputeFilters = (overrides?: Partial<{
+    search: string
+    region: string
+    exactMatch: boolean
+    status: StatusFilter
+    category: string
+  }>) => {
+    const opts = {
+      search: overrides?.search ?? searchQuery,
+      region: overrides?.region ?? selectedRegion,
+      exactMatch: overrides?.exactMatch ?? exactMatch,
+      status: overrides?.status ?? statusFilter,
+      category: overrides?.category ?? categoryFilter,
+    }
+
+    const filtered = filterAttendees(attendees, opts)
+    syncPathSelection(filtered, opts.search, opts.exactMatch)
+    setCurrentPage(1)
+  }
+
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    setCurrentPage(1)
-    const filtered = filterAttendees(attendees, query, selectedRegion, exactMatch)
-    syncPathSelection(filtered, query, exactMatch)
+    recomputeFilters({ search: query })
   }
 
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region)
-    setCurrentPage(1)
-    const filtered = filterAttendees(attendees, searchQuery, region, exactMatch)
-    syncPathSelection(filtered, searchQuery, exactMatch)
+    recomputeFilters({ region })
   }
 
   const handleExactMatchToggle = (value: boolean) => {
     setExactMatch(value)
-    setCurrentPage(1)
-    const filtered = filterAttendees(attendees, searchQuery, selectedRegion, value)
-    syncPathSelection(filtered, searchQuery, value)
+    recomputeFilters({ exactMatch: value })
+  }
+
+  const handleStatusChange = (value: StatusFilter) => {
+    setStatusFilter(value)
+    recomputeFilters({ status: value })
+  }
+
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value)
+    recomputeFilters({ category: value })
   }
 
   const handleDelete = async (attendeeId: string) => {
@@ -138,7 +229,14 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       await deleteAttendee(attendeeId)
       const updated = attendees.filter((att) => att.id !== attendeeId)
       setAttendees(updated)
-      const filtered = filterAttendees(updated, searchQuery, selectedRegion, exactMatch)
+
+      const filtered = filterAttendees(updated, {
+        search: searchQuery,
+        region: selectedRegion,
+        exactMatch,
+        status: statusFilter,
+        category: categoryFilter,
+      })
 
       if (!filtered.some((att) => att.assignedSeat === selectedSeatForPath)) {
         setSelectedSeatForPath(null)
@@ -166,7 +264,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
-  const totalPages = Math.ceil(filteredAttendees.length / ITEMS_PER_PAGE)
+  const totalPages = Math.ceil(filteredAttendees.length / ITEMS_PER_PAGE) || 1
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
   const paginatedAttendees = filteredAttendees.slice(startIndex, endIndex)
@@ -208,7 +306,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
       {/* Filters + stats */}
       <Card className="bg-white border-slate-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-slate-900 mb-2">
@@ -244,6 +342,36 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                   {region}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Category filter */}
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Filter by Category</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status filter */}
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Filter by Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value as StatusFilter)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="All">All</option>
+              <option value="Checked In">Checked In</option>
+              <option value="Pending">Pending</option>
             </select>
           </div>
         </div>
