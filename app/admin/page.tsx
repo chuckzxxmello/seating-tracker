@@ -22,7 +22,7 @@ import { auth } from "@/lib/firebase";
 const AdminPage = () => {
   const router = useRouter();
 
-  // 🔐 auth-related state
+  // auth state
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -41,7 +41,7 @@ const AdminPage = () => {
     checkInRate: 0,
   });
 
-  // ✅ Protect /admin on the client
+  // Protect /admin on the client
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
