@@ -179,7 +179,7 @@ const AdminPage = () => {
                 Admin
               </h1>
               <p className="text-slate-600 mt-1 text-xs md:text-sm">
-                Manage attendees and seat assignments
+                Manage delegates and seat assignments
               </p>
             </div>
             <Button
