@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import Image from "next/image";
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { LogIn } from "lucide-react"
@@ -38,14 +39,19 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-white border-blue-200 shadow-lg p-8">
-        <div className="flex justify-center mb-6">
-          <div className="bg-blue-100 p-3 rounded-lg">
-            <LogIn className="w-6 h-6 text-blue-600" />
-          </div>
+        <div className="flex justify-center mb-4 md:mb-6">
+                  <Image
+                    src="/images/home-mark.png"
+                    alt="Logo"
+                    width={120}
+                    height={120}
+                    className="h-auto w-auto animate-hero-logo drop-shadow-[0_0_40px_rgba(0,0,0,0.8)]"
+                    priority
+                  />
         </div>
 
         <h1 className="text-3xl font-bold text-center text-slate-900 mb-2">Admin Login</h1>
-        <p className="text-center text-slate-600 mb-8">Sign in to access the admin dashboard</p>
+        <p className="text-center text-slate-600 mb-8">Log in to access the admin dashboard</p>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -116,12 +122,12 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2"
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "Logging in..." : "Log In"}
           </Button>
         </form>
 
         <p className="text-center text-slate-600 text-sm mt-6">
-          Admin credentials are securely managed and protected by Firebase Authentication
+          Admin credentials are securely managed and protected.
         </p>
         <div className="mt-8 pt-6 border-t border-blue-200">
           <Link href="/">

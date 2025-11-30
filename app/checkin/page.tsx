@@ -138,7 +138,7 @@ export default function CheckinPage() {
         )}
 
         <Card className="bg-white border-blue-200 p-4 md:p-8 shadow-sm">
-          <h2 className="text-lg md:text-xl font-semibold text-slate-900 mb-4 md:mb-6">Find Attendee</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-slate-900 mb-4 md:mb-6">Find My Seat</h2>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
@@ -164,8 +164,13 @@ export default function CheckinPage() {
           <Card className="bg-white border-blue-200 p-4 md:p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 md:mb-6">
               <h2 className="text-base md:text-lg font-semibold text-slate-900 leading-tight">
-                Venue Map - Seat {selectedAttendee.assignedSeat || "TBD"}
+                Venue Map
               </h2>
+            <p className="text-xs md:text-sm text-slate-600 p-3 md:p-4 bg-blue-50 rounded-lg leading-relaxed">
+              Your assigned seat is{" "}
+              <strong className="text-blue-700">Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}</strong>.
+              Look for the highlighted table with the orange circle on the map above.
+            </p>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {!selectedAttendee.checkedIn ? (
                   <Button
@@ -205,11 +210,7 @@ export default function CheckinPage() {
               </div>
             )}
 
-            <p className="text-xs md:text-sm text-slate-600 p-3 md:p-4 bg-blue-50 rounded-lg leading-relaxed">
-              Your assigned seat is{" "}
-              <strong className="text-blue-700">Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}</strong>.
-              Look for the highlighted table with the orange circle on the map above.
-            </p>
+
           </Card>
         )}
       </main>

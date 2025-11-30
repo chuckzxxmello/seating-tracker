@@ -112,7 +112,9 @@ export async function getAttendeeByTicket(ticketNumber: string): Promise<Attende
   }
 }
 
-export async function createAttendee(attendeeData: Omit<Attendee, "id" | "createdAt" | "updatedAt">): Promise<string> {
+export async function createAttendee(
+  attendeeData: Omit<Attendee, "id" | "createdAt" | "updatedAt">,
+): Promise<string> {
   try {
     ensureFirebaseInitialized()
     const cleanData = Object.fromEntries(Object.entries(attendeeData).filter(([, value]) => value !== undefined))
@@ -130,7 +132,10 @@ export async function createAttendee(attendeeData: Omit<Attendee, "id" | "create
   }
 }
 
-export async function updateAttendee(id: string, updates: Partial<Omit<Attendee, "id" | "createdAt">>): Promise<void> {
+export async function updateAttendee(
+  id: string,
+  updates: Partial<Omit<Attendee, "id" | "createdAt">>,
+): Promise<void> {
   try {
     ensureFirebaseInitialized()
     const docRef = doc(firestore!, "attendees", id)
@@ -294,6 +299,8 @@ export async function batchImportAttendees(
     category: string
     table?: number
     seat?: number
+    checkedIn?: boolean
+    checkedInTime?: string | Date | null
   }>,
 ): Promise<{ successful: number; failed: number; errors: string[] }> {
   try {
@@ -307,6 +314,22 @@ export async function batchImportAttendees(
       try {
         const docRef = doc(firestore!, "attendees", attendee.ticketNumber.toUpperCase())
 
+        // derive checked-in value
+        const checkedIn = attendee.checkedIn ?? false
+
+        // normalize checkedInTime to Firestore Timestamp or null
+        let checkedInTime: Timestamp | null = null
+        if (attendee.checkedInTime) {
+          if (attendee.checkedInTime instanceof Date) {
+            checkedInTime = Timestamp.fromDate(attendee.checkedInTime)
+          } else if (typeof attendee.checkedInTime === "string") {
+            const parsed = new Date(attendee.checkedInTime)
+            if (!Number.isNaN(parsed.getTime())) {
+              checkedInTime = Timestamp.fromDate(parsed)
+            }
+          }
+        }
+
         batch.set(docRef, {
           ticketNumber: attendee.ticketNumber.toUpperCase(),
           name: attendee.name,
@@ -315,11 +338,12 @@ export async function batchImportAttendees(
           category: attendee.category,
           table: attendee.table || null,
           assignedSeat: attendee.seat || null,
-          checkedIn: false,
-          checkedInTime: null,
+          checkedIn,
+          checkedInTime,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         })
+
         successful++
       } catch (err) {
         failed++

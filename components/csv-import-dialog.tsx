@@ -1,81 +1,81 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Upload, X, AlertCircle, CheckCircle2 } from "lucide-react"
-import { parseCSV, downloadCSV } from "@/lib/csv-service"
-import { batchImportAttendees } from "@/lib/firebase-service"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Upload, X, AlertCircle, CheckCircle2 } from "lucide-react";
+import { parseCSV } from "@/lib/csv-service";
+import { batchImportAttendees } from "@/lib/firebase-service";
 
 interface CSVImportDialogProps {
-  onClose: () => void
-  onSuccess: () => void
+  onClose: () => void;
+  onSuccess: () => void;
 }
 
 export function CSVImportDialog({ onClose, onSuccess }: CSVImportDialogProps) {
-  const [csvContent, setCSVContent] = useState("")
-  const [parseErrors, setParseErrors] = useState<string[]>([])
-  const [isImporting, setIsImporting] = useState(false)
-  const [importResult, setImportResult] = useState<any>(null)
+  const [csvContent, setCSVContent] = useState("");
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onload = (event) => {
-      const content = event.target?.result as string
-      setCSVContent(content)
-      setParseErrors([])
-    }
-    reader.readAsText(file)
-  }
+      const content = event.target?.result as string;
+      setCSVContent(content);
+      setParseErrors([]);
+    };
+    reader.readAsText(file);
+  };
 
   const handleParse = () => {
-    const result = parseCSV(csvContent)
+    const result = parseCSV(csvContent);
     if (!result.valid) {
-      setParseErrors(result.errors)
+      setParseErrors(result.errors);
     } else {
-      setParseErrors([])
+      setParseErrors([]);
     }
-  }
+  };
 
   const handleImport = async () => {
-    const result = parseCSV(csvContent)
+    const result = parseCSV(csvContent);
     if (!result.valid) {
-      setParseErrors(result.errors)
-      return
+      setParseErrors(result.errors);
+      return;
     }
 
     try {
-      setIsImporting(true)
-      const importResult = await batchImportAttendees(result.data)
-      setImportResult(importResult)
+      setIsImporting(true);
+      const importResult = await batchImportAttendees(result.data);
+      setImportResult(importResult);
 
       if (importResult.failed === 0) {
         setTimeout(() => {
-          onSuccess()
-          onClose()
-        }, 2000)
+          onSuccess();
+          onClose();
+        }, 2000);
       }
     } catch (err) {
-      console.error("[v0] Import failed:", err)
-      setParseErrors(["Failed to import attendees. Please try again."])
+      console.error("[v0] Import failed:", err);
+      setParseErrors(["Failed to import attendees. Please try again."]);
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }
+  };
 
+  // Template kept in codebase but no longer exposed in UI
   const handleDownloadTemplate = () => {
-    const template = `ticketNumber,name,email,region,category,table,seat
-TICKET001,John Doe,john@example.com,Luzon,VIP,1,1
-TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
-
-    downloadCSV(template, "attendees_template.csv")
-  }
+    const template = `ticketNumber,name,region,category,table,seat
+TICKET001,John Doe,Luzon,VIP,1,1
+TICKET002,Jane Smith,Visayas,Paying Guests,1,2`;
+    // downloadCSV(template, "attendees_template.csv");
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -95,9 +95,11 @@ TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
             <ul className="text-slate-600 text-sm space-y-1 ml-4">
               <li>• ticketNumber (required)</li>
               <li>• name (required)</li>
-              <li>• email (optional)</li>
               <li>• region (required: Luzon, Visayas, Mindanao, International)</li>
-              <li>• category (required: PMT, VIP, Paying Guests, Doctors/Dentists)</li>
+              <li>
+                • category (required: PMT, VIP, Paying Guests, Doctors/Dentists, Partner Churches/MTLs, From other
+                churches, Major Donors, Gideonites, WEYJ, Others)
+              </li>
               <li>• table (optional)</li>
               <li>• seat (optional)</li>
             </ul>
@@ -163,6 +165,8 @@ TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
         </div>
 
         <div className="p-6 border-t border-blue-200 bg-blue-50 flex gap-3 justify-between sticky bottom-0">
+          {/* Download Template button kept in code but disabled / hidden from UI */}
+          {/* 
           <Button
             onClick={handleDownloadTemplate}
             variant="outline"
@@ -170,6 +174,9 @@ TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
           >
             Download Template
           </Button>
+          */}
+          <div /> {/* spacer to keep layout similar */}
+
           <div className="flex gap-3">
             <Button onClick={onClose} variant="outline" className="border-blue-200 text-blue-600 bg-transparent">
               Cancel
@@ -200,5 +207,5 @@ TICKET002,Jane Smith,jane@example.com,Visayas,Regular,1,2`
         </div>
       </Card>
     </div>
-  )
+  );
 }

@@ -1316,26 +1316,6 @@ function VenueMapEditorContent() {
             Reload
           </Button>
         </div>
-
-        <div className="text-sm bg-slate-50 p-3 rounded border border-slate-200">
-          <p className="font-medium text-slate-900 mb-2">Map Summary</p>
-          <p className="text-slate-700">Total Nodes: {nodes.length}</p>
-          <p className="text-slate-700">Groups: {groups.length}</p>
-          <p className="text-slate-700">
-            History: {historyIndex + 1}/{history.length}
-          </p>
-          <p className="text-slate-700">Default Zoom: {(defaultZoom * 100).toFixed(0)}%</p>
-          <div className="text-slate-600 text-xs mt-2 space-y-1">
-            {Object.entries(NODE_TYPES).map(([type]) => {
-              const count = nodes.filter((n) => n.data.type === (type as VenueNode["type"])).length
-              return count > 0 ? (
-                <p key={type}>
-                  {NODE_TYPES[type].label}: {count}
-                </p>
-              ) : null
-            })}
-          </div>
-        </div>
       </div>
     </Card>
   )

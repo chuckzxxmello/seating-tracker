@@ -1,111 +1,146 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* ===========================
+   1. Core palette (navy + neon)
+   =========================== */
 
 :root {
-  /* Updated to light mode colors */
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.15 0 0);
-  --card: oklch(0.96 0 0);
-  --card-foreground: oklch(0.15 0 0);
-  --popover: oklch(0.96 0 0);
-  --popover-foreground: oklch(0.15 0 0);
-  --primary: oklch(0.45 0.3 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.85 0 0);
-  --secondary-foreground: oklch(0.15 0 0);
-  --muted: oklch(0.75 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.55 0.25 250);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* Base background – dark navy, but not pure black */
+  --background: oklch(0.13 0.05 260);
+  --foreground: oklch(0.96 0.01 260);
+
+  --card: oklch(0.16 0.04 260); /* slightly lighter than bg */
+  --card-foreground: var(--foreground);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  /* Neon-ish beam blue */
+  --primary: oklch(0.68 0.23 255);
+  --primary-foreground: oklch(0.16 0.04 260);
+
+  --secondary: oklch(0.19 0.04 260);
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.18 0.03 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+
+  --accent: oklch(0.72 0.22 255);
+  --accent-foreground: oklch(0.12 0.04 260);
+
+  --destructive: oklch(0.55 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.88 0 0);
-  --input: oklch(0.95 0 0);
-  --ring: oklch(0.45 0.3 250);
-  --chart-1: oklch(0.65 0.22 250);
-  --chart-2: oklch(0.45 0.2 180);
-  --chart-3: oklch(0.35 0.15 320);
-  --chart-4: oklch(0.55 0.18 45);
-  --chart-5: oklch(0.48 0.19 60);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.96 0 0);
-  --sidebar-foreground: oklch(0.15 0 0);
-  --sidebar-primary: oklch(0.45 0.3 250);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.85 0 0);
-  --sidebar-accent-foreground: oklch(0.15 0 0);
-  --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: oklch(0.45 0.3 250);
+
+  --border: oklch(0.20 0.04 260);
+  --input: oklch(0.16 0.03 260);
+  --ring: var(--primary);
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.6 0.21 250);
+  --chart-3: oklch(0.62 0.18 230);
+  --chart-4: oklch(0.55 0.18 210);
+  --chart-5: oklch(0.7 0.18 260);
+
+  --sidebar: oklch(0.15 0.04 260);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
 }
 
+/* If you ever toggle .dark on <html>, keep same palette */
 .dark {
-  --background: oklch(0.08 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.45 0.3 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.35 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.55 0.25 250);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
+  --background: oklch(0.13 0.05 260);
+  --foreground: oklch(0.96 0.01 260);
+
+  --card: oklch(0.16 0.04 260);
+  --card-foreground: var(--foreground);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.68 0.23 255);
+  --primary-foreground: oklch(0.16 0.04 260);
+
+  --secondary: oklch(0.19 0.04 260);
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.18 0.03 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+
+  --accent: oklch(0.72 0.22 255);
+  --accent-foreground: oklch(0.12 0.04 260);
+
+  --destructive: oklch(0.55 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.45 0.3 250);
-  --chart-1: oklch(0.65 0.22 250);
-  --chart-2: oklch(0.45 0.2 180);
-  --chart-3: oklch(0.35 0.15 320);
-  --chart-4: oklch(0.55 0.18 45);
-  --chart-5: oklch(0.48 0.19 60);
-  --sidebar: oklch(0.12 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.45 0.3 250);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.45 0.3 250);
+
+  --border: oklch(0.20 0.04 260);
+  --input: oklch(0.16 0.03 260);
+  --ring: var(--primary);
+
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.6 0.21 250);
+  --chart-3: oklch(0.62 0.18 230);
+  --chart-4: oklch(0.55 0.18 210);
+  --chart-5: oklch(0.7 0.18 260);
+
+  --sidebar: oklch(0.15 0.04 260);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--primary);
 }
+
+/* ===========================
+   2. Tell Tailwind v4 about the tokens
+   =========================== */
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -116,16 +151,47 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ===========================
+   3. Base styles + animations
+   =========================== */
+
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    color: var(--foreground);
+
+    /* spotlight background */
+    background-image: url("/Background.png");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-attachment: fixed;
   }
 
-  /* Added smooth minimal animations */
-  /* Smooth transitions for interactive elements */
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 60%, transparent);
+  }
+
+   select {
+    background-color: var(--card) !important;      /* closed state */
+    color: var(--foreground) !important;
+  }
+
+  select option {
+    background-color: var(--card) !important;      /* open dropdown list */
+    color: var(--foreground) !important;
+  }
+
+  /* Optional: hover/active option color tweak */
+  select option:checked,
+  select option:hover {
+    background-color: color-mix(in oklch, var(--card) 70%, var(--primary) 30%)
+      !important;
+    color: var(--foreground) !important;
+  }
+
   button,
   a,
   input,
@@ -134,7 +200,6 @@
     transition: all 150ms ease-in-out;
   }
 
-  /* Minimal fade-in for page loads */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -144,7 +209,6 @@
     }
   }
 
-  /* Subtle slide-up for cards and modals */
   @keyframes slideUp {
     from {
       opacity: 0;
@@ -156,7 +220,6 @@
     }
   }
 
-  /* Minimal scale for hover effects */
   @keyframes scaleIn {
     from {
       transform: scale(0.95);
@@ -168,20 +231,67 @@
     }
   }
 
-  /* Apply minimal animations to components */
+  /* Hero / page-specific animations */
+  @keyframes heroLogo {
+    0% {
+      opacity: 0;
+      transform: translateY(20px) scale(0.97);
+      filter: blur(4px);
+    }
+    60% {
+      opacity: 1;
+      transform: translateY(0) scale(1.01);
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes heroCard {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 0.1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
   .animate-fade-in {
     animation: fadeIn 200ms ease-out;
   }
-
   .animate-slide-up {
     animation: slideUp 250ms ease-out;
   }
-
   .animate-scale-in {
     animation: scaleIn 150ms ease-out;
   }
 
-  /* Reduce motion for accessibility */
+  .animate-page-fade {
+    animation: fadeIn 600ms ease-out both;
+  }
+
+  .animate-hero-logo {
+    animation: heroLogo 1200ms ease-out both;
+  }
+
+  .animate-hero-card {
+    animation: heroCard 700ms 150ms ease-out both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -190,5 +300,212 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* ===========================
+   4. Utilities / overrides
+   =========================== */
+
+@layer utilities {
+  /* --- general layout/theme helpers --- */
+
+  .bg-background {
+    background-color: transparent !important;
+  }
+
+  /* Soft twinkle overlay (used with a fixed div) */
+  .twinkle-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.12) 0, transparent 40%),
+      radial-gradient(circle at 75% 15%, rgba(137, 207, 255, 0.15) 0, transparent 45%),
+      radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.1) 0, transparent 40%);
+    mix-blend-mode: screen;
+    animation: twinkle 14s ease-in-out infinite alternate;
+    opacity: 0.25;
+  }
+
+  /* Light navy button (white-ish bg, navy text) */
+  .btn-theme-light {
+    background-color: color-mix(in oklch, var(--foreground) 85%, transparent);
+    color: var(--background);
+    border-radius: 0.5rem;
+    border: 1px solid color-mix(in oklch, var(--foreground) 40%, var(--background) 60%);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  }
+
+  .btn-theme-light:hover {
+    background-color: color-mix(in oklch, var(--foreground) 95%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .btn-theme-light:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+
+   .hover\:bg-destructive\/10:hover {
+    /* deep muted red tint, not bright */
+    background-color: oklch(0.25 0.05 30 / 0.4) !important;
+  }
+
+  /* Extra: if any component uses bg-destructive/20 on hover */
+  .hover\:bg-destructive\/20:hover {
+    background-color: oklch(0.25 0.05 30 / 0.5) !important;
+  }
+
+  /* Override a generic destructive-hover utility (safety override) */
+  .hover\:bg-destructive:hover {
+    background-color: oklch(0.25 0.05 30 / 0.4) !important;
+  }
+
+  .text-destructive {
+    color: oklch(0.55 0.14 30) !important; /* muted warm red */
+  }
+
+  /* Hovering destructive text */
+  .hover\:text-destructive:hover {
+    color: oklch(0.60 0.14 30) !important; /* slightly brighter, still soft */
+  }
+
+  /* Extra: disabled destructive text */
+  .disabled\:text-destructive:disabled {
+    color: oklch(0.40 0.05 30 / 0.6) !important;
+  }
+
+  /* Generic card fixes */
+  .bg-white {
+    background-color: var(--card) !important;
+  }
+
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-emerald-50,
+  .bg-blue-50,
+  .bg-purple-50 {
+    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
+  }
+
+  .border-slate-200,
+  .border-emerald-200,
+  .border-blue-200,
+  .border-purple-200,
+  .border-purple-300 {
+    border-color: var(--border) !important;
+  }
+
+  /* Table rows hover bg */
+  .hover\:bg-slate-50:hover {
+    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
+  }
+
+  /* Footer bar: bg-slate-50 / text-slate-600 */
+  .text-slate-600 {
+    color: color-mix(in oklch, var(--foreground) 80%, var(--background) 20%) !important;
+  }
+
+    .bg-red-50 {
+    background-color: oklch(0.22 0.04 30) !important; /* very dark muted red */
+  }
+
+  .hover\:bg-red-100:hover {
+    background-color: oklch(0.28 0.05 30) !important; /* slightly lighter muted red */
+  }
+
+  .border-red-300 {
+    border-color: oklch(0.40 0.06 30) !important;
+  }
+
+  .text-red-600 {
+    color: oklch(0.55 0.14 30) !important; /* muted warm red */
+  }
+
+  .hover\:text-red-600:hover {
+    color: oklch(0.60 0.14 30) !important;
+  }
+
+  .text-red-700, .text-red-800, .text-red-900 {
+    color: oklch(0.50 0.12 30) !important;
+  }
+
+  /* Text colors that used to be “dark on white” now become light/primary */
+  .text-slate-900,
+  .text-slate-800,
+  .text-slate-700 {
+    color: var(--foreground) !important;
+  }
+
+  .text-blue-900,
+  .text-blue-800,
+  .text-emerald-900 {
+    color: var(--foreground) !important;
+  }
+
+  /* Info cards that were purple/blue tinted */
+  .bg-white\/80 {
+    background-color: color-mix(in oklch, var(--card) 90%, transparent) !important;
+  }
+
+  .border-blue-200 {
+    border-color: var(--border) !important;
+  }
+
+  /* Button using bg-slate-200 text-slate-900 hover:bg-slate-300  */
+  .bg-slate-200 {
+    background-color: color-mix(in oklch, var(--card) 80%, var(--background) 20%) !important;
+  }
+
+  .hover\:bg-slate-300:hover {
+    background-color: color-mix(in oklch, var(--card) 70%, var(--background) 30%) !important;
+  }
+
+  /* Kill light gradients (from-blue-50 via-white to-blue-50 etc.) */
+  .bg-gradient-to-br,
+  .bg-gradient-to-r {
+    background-image: none !important;
+    background-color: var(--background) !important;
+  }
+
+  .from-blue-50,
+  .from-purple-50 {
+    --tw-gradient-from: var(--background) !important;
+  }
+
+  .via-white {
+    --tw-gradient-stops: var(--background) !important;
+  }
+
+  .to-blue-50 {
+    --tw-gradient-to: var(--background) !important;
+  }
+
+  /* React Flow controls / minimap navy styling */
+  .react-flow__controls-button {
+    background-color: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--foreground) !important;
+  }
+
+  .react-flow__controls-button:hover {
+    background-color: color-mix(in oklch, var(--card) 85%, var(--primary) 15%) !important;
+    color: var(--foreground) !important;
+  }
+
+  .react-flow__minimap,
+  .react-flow__minimap-mask {
+    background-color: color-mix(in oklch, var(--background) 90%, transparent) !important;
+  }
+
+  .react-flow__minimap-desc-1 {
+    fill: var(--primary) !important;
+  }
+
+  /* If something uses dark:bg-slate-950, keep it close to our bg */
+  .dark .bg-slate-950 {
+    background-color: oklch(0.10 0.04 260) !important;
   }
 }

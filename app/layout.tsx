@@ -1,18 +1,26 @@
+// app/layout.tsx
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Philosopher } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const philosopher = Philosopher({
+  subsets: ["latin"],
+  weight: ["400", "700"], // regular + bold
+})
 
 export const metadata: Metadata = {
-  title: "Seating Tracker",
+  title: "Legacy Night: Beyond the Silver Lining",
   description: "Event Management System",
-  generator: "v0.app",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-32x32.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 }
 
 export default function RootLayout({
@@ -21,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
+    <html lang="en" className="dark">
+      <body className={`${philosopher.className} antialiased bg-background text-foreground`}>
         <AuthProvider>{children}</AuthProvider>
         <Toaster />
         <Analytics />
