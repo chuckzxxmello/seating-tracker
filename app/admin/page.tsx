@@ -26,7 +26,7 @@ const AdminPage = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const [activeTab, setActiveTab] = useState("delegate");
+  const [activeTab, setActiveTab] = useState("delegates");
 
   const [searchSeat, setSearchSeat] = useState("");
   const [selectedAttendees, setSelectedAttendees] = useState<any[]>([]);
