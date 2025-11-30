@@ -85,17 +85,10 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
     const categoryToSave =
       editData.category === "Others" ? trimmedCustom : editData.category
 
-    // Extra validation for "Others" same as AddAttendee
-    if (editData.category === "Others" && !trimmedCustom) {
-      setError("Please specify the category in the textbox.")
-      return
-    }
-
-    // Minimal manual validation – NO email validation here
+    // Minimal manual validation – NO email / region / category validation here
     const errors: string[] = []
     if (!editData.name.trim()) errors.push("Full name is required")
-    if (!editData.region) errors.push("Region is required")
-    if (!categoryToSave) errors.push("Category is required")
+    if (!editData.ticketNumber.trim()) errors.push("Ticket number is required")
 
     if (errors.length) {
       setError(errors.join(", "))
@@ -128,9 +121,8 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
       await updateAttendee(attendee.id, {
         name: editData.name.trim(),
-        // email removed from update payload – we no longer edit it
-        region: editData.region,
-        category: categoryToSave, // store final category (custom if needed)
+        ticketNumber: editData.ticketNumber.trim(),
+        // region & category intentionally left unchanged for now
         assignedSeat: editData.assignedSeat || null,
       })
 
@@ -142,8 +134,11 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
         {
           changes: {
             name: editData.name !== attendee.name ? editData.name : undefined,
-            region: editData.region !== attendee.region ? editData.region : undefined,
-            category: categoryToSave !== attendee.category ? categoryToSave : undefined,
+            ticketNumber:
+              editData.ticketNumber !== attendee.ticketNumber
+                ? editData.ticketNumber
+                : undefined,
+            // region & category not logged since we don't edit them now
             assignedSeat:
               editData.assignedSeat !== attendee.assignedSeat
                 ? editData.assignedSeat
@@ -194,7 +189,7 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
     <Card className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-6 border-b border-blue-200 sticky top-0 bg-white">
-          <h2 className="text-2xl font-bold text-slate-900">Edit Attendee</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Edit Delegate</h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600"
@@ -234,80 +229,16 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                   Ticket Number
                 </label>
                 <Input
-                  disabled
                   value={editData.ticketNumber}
-                  className="bg-gray-50 border-blue-200"
+                  onChange={(e) =>
+                    setEditData({ ...editData, ticketNumber: e.target.value })
+                  }
+                  className="bg-white border-blue-200"
+                  placeholder="e.g., T001"
                 />
-                <p className="text-slate-500 text-xs mt-1">
-                  Ticket number cannot be changed
-                </p>
-              </div>
-              <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">
-                  Region
-                </label>
-                <select
-                  value={editData.region}
-                  onChange={(e) =>
-                    setEditData({ ...editData, region: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
-                >
-                  <option value="">Select Region</option>
-                  <option value="Luzon">Luzon</option>
-                  <option value="Visayas">Visayas</option>
-                  <option value="Mindanao">Mindanao</option>
-                  <option value="International">International</option>
-                </select>
               </div>
 
-              {/* Category (mirrors AddAttendee behaviour) */}
-              <div className="md:col-span-2">
-                <label className="text-slate-700 text-sm font-medium block mb-2">
-                  Category
-                </label>
-                <select
-                  value={editData.category}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData,
-                      category: e.target.value,
-                      // reset custom category if they leave "Others"
-                      customCategory:
-                        e.target.value === "Others"
-                          ? editData.customCategory
-                          : "",
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
-                >
-                  <option value="">Select Category</option>
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-
-                {editData.category === "Others" && (
-                  <div className="mt-3">
-                    <label className="text-slate-700 text-xs font-medium block mb-1">
-                      Specify Category
-                    </label>
-                    <Input
-                      value={editData.customCategory || ""}
-                      onChange={(e) =>
-                        setEditData({
-                          ...editData,
-                          customCategory: e.target.value,
-                        })
-                      }
-                      className="bg-white border-blue-200"
-                      placeholder="Enter custom category"
-                    />
-                  </div>
-                )}
-              </div>
+              {/* Region & Category inputs removed from UI, but data kept in Firestore */}
             </div>
           </div>
 

@@ -19,8 +19,9 @@ export interface Attendee {
   ticketNumber: string
   name: string
   email: string
-  region: string
-  category: string
+  // region & category are now optional (can be null / missing for new attendees)
+  region?: string | null
+  category?: string | null
   assignedSeat: number | null
   table: number | null
   tableCapacity?: number
@@ -64,9 +65,9 @@ export async function getAttendees(): Promise<Attendee[]> {
     ensureFirebaseInitialized()
     const q = query(collection(firestore!, "attendees"), orderBy("createdAt", "desc"))
     const snapshot = await getDocs(q)
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...convertTimestamps(doc.data()),
+    return snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...convertTimestamps(docSnap.data()),
     })) as Attendee[]
   } catch (error) {
     console.error("[v0] Error fetching attendees:", error)
@@ -79,14 +80,16 @@ export async function searchAttendees(searchTerm: string): Promise<Attendee[]> {
     ensureFirebaseInitialized()
     const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
-    const allAttendees = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...convertTimestamps(doc.data()),
+    const allAttendees = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...convertTimestamps(docSnap.data()),
     })) as Attendee[]
 
     const lowerSearch = searchTerm.toLowerCase()
     return allAttendees.filter(
-      (att) => att.name.toLowerCase().includes(lowerSearch) || att.ticketNumber.toLowerCase().includes(lowerSearch),
+      (att) =>
+        (att.name ?? "").toLowerCase().includes(lowerSearch) ||
+        (att.ticketNumber ?? "").toLowerCase().includes(lowerSearch),
     )
   } catch (error) {
     console.error("[v0] Error searching attendees:", error)
@@ -97,14 +100,17 @@ export async function searchAttendees(searchTerm: string): Promise<Attendee[]> {
 export async function getAttendeeByTicket(ticketNumber: string): Promise<Attendee | null> {
   try {
     ensureFirebaseInitialized()
-    const q = query(collection(firestore!, "attendees"), where("ticketNumber", "==", ticketNumber.toUpperCase()))
+    const q = query(
+      collection(firestore!, "attendees"),
+      where("ticketNumber", "==", ticketNumber.toUpperCase()),
+    )
     const snapshot = await getDocs(q)
     if (snapshot.empty) return null
 
-    const doc = snapshot.docs[0]
+    const docSnap = snapshot.docs[0]
     return {
-      id: doc.id,
-      ...convertTimestamps(doc.data()),
+      id: docSnap.id,
+      ...convertTimestamps(docSnap.data()),
     } as Attendee
   } catch (error) {
     console.error("[v0] Error fetching attendee by ticket:", error)
@@ -112,16 +118,35 @@ export async function getAttendeeByTicket(ticketNumber: string): Promise<Attende
   }
 }
 
-export async function createAttendee(
-  attendeeData: Omit<Attendee, "id" | "createdAt" | "updatedAt">,
-): Promise<string> {
+// Input type for creating a new attendee
+export type NewAttendeeInput = {
+  ticketNumber: string
+  name: string
+  email?: string
+  region?: string | null
+  category?: string | null
+  assignedSeat: number | null
+  table: number | null
+  tableCapacity?: number
+  checkedIn: boolean
+  checkedInTime: Date | null
+}
+
+export async function createAttendee(attendeeData: NewAttendeeInput): Promise<string> {
   try {
     ensureFirebaseInitialized()
-    const cleanData = Object.fromEntries(Object.entries(attendeeData).filter(([, value]) => value !== undefined))
+    // remove undefined fields so we don't write them
+    const cleanData = Object.fromEntries(
+      Object.entries(attendeeData).filter(([, value]) => value !== undefined),
+    ) as NewAttendeeInput
+
+    const ticketUpper = cleanData.ticketNumber.toUpperCase()
+    const email = cleanData.email || `${ticketUpper}@event.local`
 
     const docRef = await addDoc(collection(firestore!, "attendees"), {
       ...cleanData,
-      ticketNumber: cleanData.ticketNumber.toUpperCase(),
+      ticketNumber: ticketUpper,
+      email,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
@@ -241,12 +266,18 @@ export async function checkTableCapacity(
   }
 }
 
-export async function assignSeatToAttendee(attendeeId: string, tableNumber: number, isVIP: boolean): Promise<void> {
+export async function assignSeatToAttendee(
+  attendeeId: string,
+  tableNumber: number,
+  isVIP: boolean,
+): Promise<void> {
   try {
     ensureFirebaseInitialized()
     const capacity = await checkTableCapacity(tableNumber, isVIP)
     if (capacity.isFull) {
-      throw new Error(`Table ${tableNumber} is at full capacity (${capacity.max}/${capacity.max} seats occupied)`)
+      throw new Error(
+        `Table ${tableNumber} is at full capacity (${capacity.max}/${capacity.max} seats occupied)`,
+      )
     }
 
     const batch = writeBatch(firestore!)
@@ -259,7 +290,11 @@ export async function assignSeatToAttendee(attendeeId: string, tableNumber: numb
     })
 
     await batch.commit()
-    console.log(`[v0] Assigned attendee to table ${tableNumber}. Capacity: ${capacity.current + 1}/${capacity.max}`)
+    console.log(
+      `[v0] Assigned attendee to table ${tableNumber}. Capacity: ${
+        capacity.current + 1
+      }/${capacity.max}`,
+    )
   } catch (error) {
     console.error("[v0] Error assigning seat:", error)
     throw error
@@ -295,8 +330,8 @@ export async function batchImportAttendees(
     ticketNumber: string
     name: string
     email: string
-    region: string
-    category: string
+    region?: string
+    category?: string
     table?: number
     seat?: number
     checkedIn?: boolean
@@ -312,7 +347,11 @@ export async function batchImportAttendees(
 
     for (const attendee of attendeesList) {
       try {
-        const docRef = doc(firestore!, "attendees", attendee.ticketNumber.toUpperCase())
+        const docRef = doc(
+          firestore!,
+          "attendees",
+          attendee.ticketNumber.toUpperCase(),
+        )
 
         // derive checked-in value
         const checkedIn = attendee.checkedIn ?? false
@@ -334,8 +373,9 @@ export async function batchImportAttendees(
           ticketNumber: attendee.ticketNumber.toUpperCase(),
           name: attendee.name,
           email: attendee.email,
-          region: attendee.region,
-          category: attendee.category,
+          // region & category are now optional; store null if missing
+          region: attendee.region ?? null,
+          category: attendee.category ?? null,
           table: attendee.table || null,
           assignedSeat: attendee.seat || null,
           checkedIn,
@@ -370,7 +410,7 @@ export async function getCheckInStats(): Promise<{
     ensureFirebaseInitialized()
     const q = query(collection(firestore!, "attendees"))
     const snapshot = await getDocs(q)
-    const attendees = snapshot.docs.map((doc) => doc.data())
+    const attendees = snapshot.docs.map((docSnap) => docSnap.data())
 
     const totalAttendees = attendees.length
     const checkedIn = attendees.filter((a: any) => a.checkedIn).length
@@ -396,9 +436,9 @@ export async function getRegionDistribution(): Promise<Record<string, number>> {
       International: 0,
     }
 
-    snapshot.docs.forEach((doc) => {
-      const region = doc.data().region
-      if (distribution.hasOwnProperty(region)) {
+    snapshot.docs.forEach((docSnap) => {
+      const region = docSnap.data().region as string | null | undefined
+      if (region && Object.prototype.hasOwnProperty.call(distribution, region)) {
         distribution[region]++
       }
     })
@@ -417,8 +457,9 @@ export async function getCategoryDistribution(): Promise<Record<string, number>>
     const snapshot = await getDocs(q)
     const distribution: Record<string, number> = {}
 
-    snapshot.docs.forEach((doc) => {
-      const category = doc.data().category
+    snapshot.docs.forEach((docSnap) => {
+      const category = docSnap.data().category as string | null | undefined
+      if (!category) return
       distribution[category] = (distribution[category] || 0) + 1
     })
 

@@ -71,9 +71,9 @@ export function CSVImportDialog({ onClose, onSuccess }: CSVImportDialogProps) {
 
   // Template kept in codebase but no longer exposed in UI
   const handleDownloadTemplate = () => {
-    const template = `ticketNumber,name,region,category,table,seat
-TICKET001,John Doe,Luzon,VIP,1,1
-TICKET002,Jane Smith,Visayas,Paying Guests,1,2`;
+    const template = `ticketNumber,name,table,seat
+TICKET001,John Doe,1,1
+TICKET002,Jane Smith,1,2`;
     // downloadCSV(template, "attendees_template.csv");
   };
 
@@ -95,13 +95,11 @@ TICKET002,Jane Smith,Visayas,Paying Guests,1,2`;
             <ul className="text-slate-600 text-sm space-y-1 ml-4">
               <li>• ticketNumber (required)</li>
               <li>• name (required)</li>
-              <li>• region (required: Luzon, Visayas, Mindanao, International)</li>
-              <li>
-                • category (required: PMT, VIP, Paying Guests, Doctors/Dentists, Partner Churches/MTLs, From other
-                churches, Major Donors, Gideonites, WEYJ, Others)
-              </li>
               <li>• table (optional)</li>
               <li>• seat (optional)</li>
+              <li>• Check-in Status (optional: "Checked In" / "Pending")</li>
+              <li>• Check-in Time (optional, ISO date or any parseable date)</li>
+              {/* region & category are no longer required; if present they are just imported as-is */}
             </ul>
           </div>
 
@@ -183,13 +181,6 @@ TICKET002,Jane Smith,Visayas,Paying Guests,1,2`;
             </Button>
             {!importResult ? (
               <>
-                <Button
-                  onClick={handleParse}
-                  disabled={!csvContent}
-                  className="bg-slate-600 hover:bg-slate-700 text-white"
-                >
-                  Preview
-                </Button>
                 <Button
                   onClick={handleImport}
                   disabled={!csvContent || isImporting || parseErrors.length > 0}

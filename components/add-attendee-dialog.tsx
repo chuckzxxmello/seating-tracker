@@ -13,26 +13,11 @@ interface AddAttendeeDialogProps {
   onSuccess: () => void;
 }
 
-const CATEGORY_OPTIONS = [
-  { value: "PMT", label: "PMT" },
-  { value: "Doctors/Dentists", label: "Doctors/Dentists" },
-  { value: "Partner Churches/MTLs", label: "Partner Churches/MTLs" },
-  { value: "From other churches", label: "From other churches" },
-  { value: "Major Donors", label: "Major Donors" },
-  { value: "Gideonites", label: "Gideonites" },
-  { value: "Paying Guests", label: "Paying Guests" },
-  { value: "WEYJ", label: "WEYJ" },
-  { value: "VIP", label: "VIP" },
-  { value: "Others", label: "Others" }, // custom category option
-];
-
 export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     ticketNumber: "",
-    region: "",
-    category: "",
-    customCategory: "",
+    // region & category removed from UI for now
     assignedSeat: null as number | null,
   });
 
@@ -75,23 +60,9 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
   }, []);
 
   const handleSave = async () => {
-    const trimmedCustom = formData.customCategory.trim();
-    const categoryToSave =
-      formData.category === "Others" ? trimmedCustom : formData.category;
-
-    // Validation (email removed)
-    if (
-      !formData.name.trim() ||
-      !formData.ticketNumber.trim() ||
-      !formData.region ||
-      !formData.category ||
-      (formData.category === "Others" && !trimmedCustom)
-    ) {
-      setError(
-        formData.category === "Others" && !trimmedCustom
-          ? "Please specify the category in the textbox."
-          : "Please fill in all required fields",
-      );
+    // Validation: only require name & ticket now
+    if (!formData.name.trim() || !formData.ticketNumber.trim()) {
+      setError("Please fill in all required fields");
       return;
     }
 
@@ -102,9 +73,7 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
       await createAttendee({
         name: formData.name.trim(),
         ticketNumber: formData.ticketNumber.trim(),
-        // email removed completely
-        region: formData.region,
-        category: categoryToSave,
+        // region & category intentionally omitted for now
         assignedSeat: formData.assignedSeat,
         table: formData.assignedSeat
           ? Math.ceil(formData.assignedSeat / 8)
@@ -128,7 +97,7 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-6 border-b border-blue-200 sticky top-0 bg-white">
           <h2 className="text-2xl font-bold text-slate-900">
-            Add New Attendee
+            Add New Delegate
           </h2>
           <button
             onClick={onClose}
@@ -148,7 +117,7 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
           {/* Personal Information Section */}
           <div>
             <h3 className="text-lg font-semibold text-slate-900 mb-4">
-              Attendee Personal Information
+              Delegate Personal Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -177,69 +146,7 @@ export function AddAttendeeDialog({ onClose, onSuccess }: AddAttendeeDialogProps
                   placeholder="e.g., T001"
                 />
               </div>
-              <div>
-                <label className="text-slate-700 text-sm font-medium block mb-2">
-                  Region *
-                </label>
-                <select
-                  value={formData.region}
-                  onChange={(e) =>
-                    setFormData({ ...formData, region: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
-                >
-                  <option value="">Select Region</option>
-                  <option value="Luzon">Luzon</option>
-                  <option value="Visayas">Visayas</option>
-                  <option value="Mindanao">Mindanao</option>
-                  <option value="International">International</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-slate-700 text-sm font-medium block mb-2">
-                  Category *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      category: e.target.value,
-                      customCategory:
-                        e.target.value === "Others"
-                          ? formData.customCategory
-                          : "",
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-blue-200 rounded-md text-slate-900 text-sm"
-                >
-                  <option value="">Select Category</option>
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-
-                {formData.category === "Others" && (
-                  <div className="mt-3">
-                    <label className="text-slate-700 text-xs font-medium block mb-1">
-                      Specify Category *
-                    </label>
-                    <Input
-                      value={formData.customCategory}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          customCategory: e.target.value,
-                        })
-                      }
-                      className="bg-white border-blue-200"
-                      placeholder="Enter custom category"
-                    />
-                  </div>
-                )}
-              </div>
+              {/* Region & Category fields removed from UI for now */}
             </div>
           </div>
 

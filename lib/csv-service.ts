@@ -4,12 +4,15 @@ export interface AttendeeCSVData {
   ticketNumber: string;
   name: string;
   email: string;
-  region: string;
-  category: string;
+  // region & category kept optional for backward compatibility,
+  // but no longer required in CSV.
+  region?: string;
+  category?: string;
   table?: number;
   seat?: number;
-  checkedIn?: boolean;      // NEW
-  checkedInTime?: string;   // NEW – stored as string (ISO or raw from CSV)
+  checkedIn?: boolean;
+  // stored as string (ISO or raw from CSV)
+  checkedInTime?: string;
 }
 
 export interface ParseResult {
@@ -21,13 +24,13 @@ export interface ParseResult {
 /**
  * Clean a single CSV cell:
  * - trim whitespace
- * - strip surrounding "..." or '...'
+ * - strip surrounding "." or '.'
  * - unescape "" → "
  */
 function cleanCell(value: string): string {
   let v = value.trim();
 
-  // Strip surrounding quotes "..." or '...'
+  // Strip surrounding quotes "." or '.'
   if (
     v.length >= 2 &&
     ((v.startsWith('"') && v.endsWith('"')) ||
@@ -77,12 +80,12 @@ export function parseCSV(csvContent: string): ParseResult {
   ]);
   const nameIdx = findIndex(["name"]);
   const emailIdx = findIndex(["email"]); // optional
-  const regionIdx = findIndex(["region"]);
-  const categoryIdx = findIndex(["category"]);
-  const tableIdx = findIndex(["table"]);
+  const regionIdx = findIndex(["region"]); // optional now
+  const categoryIdx = findIndex(["category"]); // optional now
+  const tableIdx = findIndex(["table"]); // optional
   const seatIdx = findIndex(["seat"]);
 
-  // NEW: detect check-in columns (as exported by generateCSV)
+  // detect check-in columns (as exported by generateCSV)
   const checkInStatusIdx = findIndex([
     "check-in status",
     "check in status",
@@ -94,12 +97,10 @@ export function parseCSV(csvContent: string): ParseResult {
     "checkin time",
   ]);
 
-  // Required columns
+  // Required columns – ONLY ticket + name now
   const missingRequired: string[] = [];
   if (ticketIdx === -1) missingRequired.push("ticketNumber");
   if (nameIdx === -1) missingRequired.push("name");
-  if (regionIdx === -1) missingRequired.push("region");
-  if (categoryIdx === -1) missingRequired.push("category");
 
   if (missingRequired.length > 0) {
     return {
@@ -108,21 +109,6 @@ export function parseCSV(csvContent: string): ParseResult {
       errors: [`Missing required columns: ${missingRequired.join(", ")}`],
     };
   }
-
-  const validRegions = ["luzon", "visayas", "mindanao", "international"];
-
-  const validCategories = [
-    "pmt",
-    "vip",
-    "paying guests",
-    "doctors/dentists",
-    "partner churches/mtls",
-    "from other churches",
-    "major donors",
-    "gideonites",
-    "weyj",
-    "others",
-  ];
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -147,7 +133,6 @@ export function parseCSV(csvContent: string): ParseResult {
         ? Number.parseInt(values[seatIdx], 10)
         : undefined;
 
-    // NEW: read check-in columns if present
     const checkInStatusRaw =
       checkInStatusIdx >= 0 ? values[checkInStatusIdx] ?? "" : "";
     const checkInTimeRaw =
@@ -164,23 +149,13 @@ export function parseCSV(csvContent: string): ParseResult {
       continue;
     }
 
-    const regionClean = regionRaw.trim();
-    const regionLc = regionClean.toLowerCase();
-    if (!regionClean || !validRegions.includes(regionLc)) {
-      errors.push(`Row ${rowNum}: Invalid region "${regionRaw}"`);
-      continue;
-    }
-
-    const categoryClean = categoryRaw.trim();
-    const categoryLc = categoryClean.toLowerCase();
-    if (!categoryClean || !validCategories.includes(categoryLc)) {
-      errors.push(`Row ${rowNum}: Invalid category "${categoryRaw}"`);
-      continue;
-    }
+    // region & category are now optional and unvalidated
+    const regionClean = regionRaw.trim() || undefined;
+    const categoryClean = categoryRaw.trim() || undefined;
 
     const email = rawEmail || `${ticket}@event.local`;
 
-    // NEW: normalize check-in status to boolean
+    // Normalize check-in status to boolean
     let checkedIn: boolean | undefined = undefined;
     if (checkInStatusRaw) {
       const s = checkInStatusRaw.trim().toLowerCase();
@@ -251,13 +226,10 @@ function formatCheckInTime(value: any): string {
 }
 
 export function generateCSV(attendees: any[]): string {
-  // No Email column; include Check-in Time
+  // "Table" column removed from export headers.
   const headers = [
     "Ticket Number",
     "Name",
-    "Region",
-    "Category",
-    "Table",
     "Seat",
     "Check-in Status",
     "Check-in Time",
@@ -266,13 +238,10 @@ export function generateCSV(attendees: any[]): string {
   const rows = attendees.map((a) => [
     a.ticketNumber,
     a.name,
-    a.region,
-    a.category,
-    a.table ?? "-",
     // support both `seat` and `assignedSeat`
     a.seat ?? a.assignedSeat ?? "-",
     a.checkedIn ? "Checked In" : "Pending",
-    formatCheckInTime(a.checkedInTime),
+    formatCheckInTime((a as any).checkedInTime),
   ]);
 
   const csvContent = [
