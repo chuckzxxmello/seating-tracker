@@ -49,10 +49,6 @@ export default function LoginPage() {
                     priority
                   />
         </div>
-
-        <h1 className="text-3xl font-bold text-center text-slate-900 mb-2">Admin Login</h1>
-        <p className="text-center text-slate-600 mb-8">Log in to access the admin dashboard</p>
-
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
@@ -126,9 +122,6 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-slate-600 text-sm mt-6">
-          Admin credentials are securely managed and protected.
-        </p>
         <div className="mt-8 pt-6 border-t border-blue-200">
           <Link href="/">
             <Button variant="outline" className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent">
