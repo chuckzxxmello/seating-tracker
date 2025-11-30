@@ -344,7 +344,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
               Search by Name or Ticket
             </label>
             <Input
-              placeholder="Search attendees..."
+              placeholder="Search delegates..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="bg-white border-slate-300"
