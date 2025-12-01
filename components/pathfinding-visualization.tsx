@@ -14,21 +14,27 @@ import {
 } from "lucide-react";
 
 interface PathfindingVisualizationProps {
-  seatId: number | null;
+  /** Single seat (existing usage) */
+  seatId?: number | null;
+
+  /** NEW: highlight multiple table numbers at once */
+  seatIds?: number[];
+
   imageSrc?: string;
   showBackground?: boolean;
 
   /**
    * isVip:
-   *  - true  → attendee is VIP → only VIP table with this seatId is shown/validated/highlighted
-   *  - false → attendee is regular → only regular table with this seatId is shown/validated/highlighted
-   *  - undefined → ADMIN MODE (e.g. delegate search) → both VIP and regular tables for this seatId
+   *  - true  → attendee is VIP → only VIP table(s) for these seatId(s)
+   *  - false → attendee is regular → only regular table(s) for these seatId(s)
+   *  - undefined → ADMIN MODE → both VIP and regular tables for these seatId(s)
    */
   isVip?: boolean;
 }
 
 export function PathfindingVisualization({
   seatId,
+  seatIds,
   imageSrc,
   showBackground = false,
   isVip, // NOTE: no default! undefined means "admin mode"
@@ -78,6 +84,27 @@ export function PathfindingVisualization({
   const isAdminMode = mode === "admin";
 
   // ---------------------------------------------------------------------------
+  // Normalize selected seat IDs (single + multiple)
+  // ---------------------------------------------------------------------------
+  const selectedSeatIds: number[] = (() => {
+    if (Array.isArray(seatIds) && seatIds.length > 0) {
+      const clean = seatIds
+        .filter((s) => typeof s === "number" && !Number.isNaN(s))
+        .map((s) => Math.trunc(s));
+      return Array.from(new Set(clean));
+    }
+
+    if (typeof seatId === "number" && !Number.isNaN(seatId)) {
+      return [Math.trunc(seatId)];
+    }
+
+    return [];
+  })();
+
+  const seatIdSet = new Set(selectedSeatIds.map((id) => String(id)));
+  const hasSelectedSeats = selectedSeatIds.length > 0;
+
+  // ---------------------------------------------------------------------------
   // Load venue nodes
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -101,10 +128,10 @@ export function PathfindingVisualization({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Validate the requested seat exists (VIP/regular/admin aware)
+  // Validate the requested seat(s) exist (VIP/regular/admin aware)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!seatId || venueNodes.length === 0) return;
+    if (!hasSelectedSeats || venueNodes.length === 0) return;
 
     try {
       const allowedTypes =
@@ -117,16 +144,22 @@ export function PathfindingVisualization({
       const matches = venueNodes.filter((node) => {
         if (!allowedTypes.includes(node.type)) return false;
         const tableNum = node.label.match(/\d+/)?.[0];
-        return tableNum === String(seatId);
+        if (!tableNum) return false;
+        return seatIdSet.has(tableNum);
       });
 
       if (matches.length === 0) {
-        if (mode === "vip") {
-          setError(`VIP table ${seatId} not found`);
-        } else if (mode === "regular") {
-          setError(`Table ${seatId} not found`);
+        if (selectedSeatIds.length === 1) {
+          const id = selectedSeatIds[0];
+          if (mode === "vip") {
+            setError(`VIP table ${id} not found`);
+          } else if (mode === "regular") {
+            setError(`Table ${id} not found`);
+          } else {
+            setError(`No VIP or regular table ${id} found`);
+          }
         } else {
-          setError(`No VIP or regular table ${seatId} found`);
+          setError("No matching tables found for selected seats");
         }
       } else {
         setError(null);
@@ -135,7 +168,7 @@ export function PathfindingVisualization({
       console.error("[v0] Error finding table:", err);
       setError("Error locating table");
     }
-  }, [seatId, venueNodes, mode]);
+  }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
   // ---------------------------------------------------------------------------
   // Zoom / pan helpers
@@ -346,11 +379,11 @@ export function PathfindingVisualization({
   }, [isFullscreen]);
 
   // ---------------------------------------------------------------------------
-  // Seat highlighting logic (VIP / regular / admin)
+  // Seat highlighting logic (VIP / regular / admin) – multi-seat aware
   // ---------------------------------------------------------------------------
   const isSeatNodeSelected = (node: VenueNode) => {
     const tableNum = node.label.match(/\d+/)?.[0];
-    if (!seatId || !tableNum || tableNum !== String(seatId)) return false;
+    if (!tableNum || !seatIdSet.has(tableNum)) return false;
 
     if (mode === "vip") {
       return node.type === "vip-table";
@@ -454,7 +487,6 @@ export function PathfindingVisualization({
           pos.x - 15 * contentScale,
           pos.y - 30 * contentScale,
           30 * contentScale,
-          60 * contentScale,
         );
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `${Math.max(8, 10 * contentScale)}px sans-serif`;
@@ -560,7 +592,7 @@ export function PathfindingVisualization({
     venueNodes.forEach(drawNode);
 
     ctx.restore();
-  }, [seatId, venueNodes, mode, zoom, pan]);
+  }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet]);
 
   // ---------------------------------------------------------------------------
   // UI
@@ -607,6 +639,13 @@ export function PathfindingVisualization({
   const headerLabelPrefix =
     mode === "vip" ? "VIP Seat Number " : "Seat Number ";
 
+  const headerSeatLabel =
+    !hasSelectedSeats
+      ? ""
+      : selectedSeatIds.length === 1
+      ? `${headerLabelPrefix}${selectedSeatIds[0]}`
+      : `${headerLabelPrefix}${selectedSeatIds.join(", ")}`;
+
   return (
     <>
       {/* Fullscreen overlay */}
@@ -617,8 +656,7 @@ export function PathfindingVisualization({
               <h2 className="text-base md:text-lg font-semibold leading-tight">
                 Venue Map
               </h2>
-              {headerLabelPrefix}
-              {seatId}
+              {headerSeatLabel}
             </h3>
             <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
               <Minimize2 className="w-5 h-5" />
@@ -656,7 +694,7 @@ export function PathfindingVisualization({
           </div>
         )}
 
-        {seatId && !error && (
+        {hasSelectedSeats && !error && (
           <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
             <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
               <h3 className="font-semibold text-sm md:text-base">Venue Map</h3>
