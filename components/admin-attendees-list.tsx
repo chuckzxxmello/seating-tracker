@@ -62,8 +62,11 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const [exactMatch, setExactMatch] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null)
-  const [selectedSeatForPath, setSelectedSeatForPath] = useState<number | null>(null)
-  const [selectedAttendeeIsVip, setSelectedAttendeeIsVip] = useState(false)
+
+  // 🔥 NEW: support multiple seat highlights
+  const [selectedSeatsForPath, setSelectedSeatsForPath] = useState<number[]>([])
+  const [selectedAttendeeIsVip, setSelectedAttendeeIsVip] = useState<boolean | null>(null)
+
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -81,10 +84,13 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       const data = await getAttendees()
       setAttendees(data)
 
-      filterAttendees(data, {
+      const filtered = filterAttendees(data, {
         search: searchQuery,
         exactMatch,
       })
+
+      // keep map selection in sync after loading
+      syncPathSelection(filtered, searchQuery, exactMatch)
     } catch (error) {
       console.error("[v0] Error loading attendees:", error)
     } finally {
@@ -136,7 +142,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
     let filtered = attendeeList
 
-    // search filter only
     if (tokens.length > 0) {
       filtered = filtered.filter((att) => matchesSearch(att, tokens, isExact))
     }
@@ -145,7 +150,12 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     return filtered
   }
 
-  const syncPathSelection = (list: Attendee[], search: string, isExact: boolean) => {
+  // 🔥 NEW: compute ALL seat numbers from current matches
+  const syncPathSelection = (
+    list: Attendee[],
+    search: string,
+    isExact: boolean,
+  ) => {
     const tokens = search
       .trim()
       .toLowerCase()
@@ -153,14 +163,30 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       .filter(Boolean)
 
     if (tokens.length === 0) {
-      setSelectedSeatForPath(null)
-      setSelectedAttendeeIsVip(false)
+      setSelectedSeatsForPath([])
+      setSelectedAttendeeIsVip(null)
       return
     }
 
-    const match = list.find((att) => matchesSearch(att, tokens, isExact))
-    setSelectedSeatForPath(match?.assignedSeat ?? null)
-    setSelectedAttendeeIsVip(match?.category === "VIP")
+    // all attendees that match the search
+    const matches = list.filter((att) => matchesSearch(att, tokens, isExact))
+
+    // collect all assignedSeat values
+    const seats = matches
+      .map((att) => att.assignedSeat)
+      .filter((seat): seat is number => typeof seat === "number" && !Number.isNaN(seat))
+
+    const uniqueSeats = Array.from(new Set(seats))
+
+    setSelectedSeatsForPath(uniqueSeats)
+
+    // If *exactly one* attendee matched, we keep VIP/regular awareness.
+    if (matches.length === 1 && typeof matches[0].assignedSeat === "number") {
+      setSelectedAttendeeIsVip(matches[0].category === "VIP")
+    } else {
+      // multiple attendees → admin mode (no VIP filter)
+      setSelectedAttendeeIsVip(null)
+    }
   }
 
   const recomputeFilters = (
@@ -202,10 +228,8 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         exactMatch,
       })
 
-      if (!filtered.some((att) => att.assignedSeat === selectedSeatForPath)) {
-        setSelectedSeatForPath(null)
-        setSelectedAttendeeIsVip(false)
-      }
+      // re-sync path selection after delete
+      syncPathSelection(filtered, searchQuery, exactMatch)
     } catch (error) {
       console.error("[v0] Error deleting attendee:", error)
       alert("Failed to delete attendee")
@@ -268,7 +292,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         </Button>
       </div>
 
-      {/* Search only (region/category/status filters removed) */}
+      {/* Search only */}
       <Card className="bg-white border-slate-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           {/* Search */}
@@ -296,12 +320,18 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       </Card>
 
       {/* Pathfinding preview */}
-      {selectedSeatForPath && (
+      {selectedSeatsForPath.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-slate-900">Venue Map with Shortest Path</h3>
           <PathfindingVisualization
-            seatId={selectedSeatForPath}
-            isVip={selectedAttendeeIsVip}
+            // 🔥 NEW: highlight multiple tables at once
+            seatIds={selectedSeatsForPath}
+            // If exactly one attendee matched AND we know VIP/regular → keep old behavior.
+            isVip={
+              selectedSeatsForPath.length === 1 && selectedAttendeeIsVip != null
+                ? selectedAttendeeIsVip
+                : undefined
+            }
             imageSrc="/images/design-mode/9caa3868-4cd5-468f-9fe7-4dc613433d03.jfif.jpeg"
             showBackground={true}
           />
@@ -317,7 +347,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Ticket</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Check-in Time</th>
-                {/* Region & Category columns removed */}
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Table</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
@@ -338,7 +367,6 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {formatCheckInTime((attendee as any).checkedInTime)}
                     </td>
-                    {/* Region & Category cells removed */}
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {attendee.assignedSeat ? `Table ${attendee.assignedSeat}` : "Unassigned"}
                     </td>
