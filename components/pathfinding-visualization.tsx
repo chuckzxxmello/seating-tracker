@@ -487,6 +487,7 @@ export function PathfindingVisualization({
           pos.x - 15 * contentScale,
           pos.y - 30 * contentScale,
           30 * contentScale,
+          60 * contentScale, // ✅ added height argument
         );
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `${Math.max(8, 10 * contentScale)}px sans-serif`;
