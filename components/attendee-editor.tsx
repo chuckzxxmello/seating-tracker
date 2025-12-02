@@ -16,7 +16,7 @@ interface Attendee {
   table?: number
   assignedSeat?: number
   checkedIn: boolean
-  email?: string // keep optional, but we won't edit or validate it
+  email?: string
 }
 
 interface AttendeeEditorProps {
@@ -28,64 +28,25 @@ interface AttendeeEditorProps {
 
 type EditData = Attendee & {
   customCategory?: string
+  isVip?: boolean          // 🔥 NEW: explicit VIP flag for UI
 }
 
-const CATEGORY_OPTIONS = [
-  { value: "PMT", label: "PMT" },
-  { value: "Doctors/Dentists", label: "Doctors/Dentists" },
-  { value: "Partner Churches/MTLs", label: "Partner Churches/MTLs" },
-  { value: "From other churches", label: "From other churches" },
-  { value: "Major Donors", label: "Major Donors" },
-  { value: "Gideonites", label: "Gideonites" },
-  { value: "Paying Guests", label: "Paying Guests" },
-  { value: "WEYJ", label: "WEYJ" },
-  { value: "VIP", label: "VIP" },
-  { value: "Others", label: "Others" }, // custom category option
-]
-
 export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: AttendeeEditorProps) {
-  // Initialize state similar to AddAttendee, but mapping existing attendee data
-  const [editData, setEditData] = useState<EditData>(() => {
-    const isKnownCategory =
-      !!attendee.category &&
-      CATEGORY_OPTIONS.some(
-        (opt) => opt.value === attendee.category && opt.value !== "Others",
-      )
-
-    // If category is one of our known options (except "Others"), no custom text
-    if (isKnownCategory) {
-      return {
-        ...attendee,
-        customCategory: "",
-      }
-    }
-
-    // If category is empty
-    if (!attendee.category) {
-      return {
-        ...attendee,
-        category: "",
-        customCategory: "",
-      }
-    }
-
-    // Otherwise, treat as custom: show "Others" and put original value into textbox
-    return {
-      ...attendee,
-      category: "Others",
-      customCategory: attendee.category,
-    }
-  })
+  const [editData, setEditData] = useState<EditData>(() => ({
+    ...attendee,
+    customCategory: "",
+    isVip: attendee.category === "VIP",   // 🔥 initialize from existing category
+  }))
 
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleSave = async () => {
-    const trimmedCustom = (editData.customCategory || "").trim()
-    const categoryToSave =
-      editData.category === "Others" ? trimmedCustom : editData.category
+    const isVipFlag = !!editData.isVip
 
-    // Minimal manual validation – NO email / region / category validation here
+    // Decide what to store in category
+    const categoryToSave = isVipFlag ? "VIP" : attendee.category === "VIP" ? "" : attendee.category
+
     const errors: string[] = []
     if (!editData.name.trim()) errors.push("Full name is required")
     if (!editData.ticketNumber.trim()) errors.push("Ticket number is required")
@@ -95,12 +56,11 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
       return
     }
 
-    // Only check capacity when assigned seat changes
+    // Only check capacity when seat changes
     if (editData.assignedSeat && editData.assignedSeat !== attendee.assignedSeat) {
       try {
-        const isVIP = categoryToSave === "VIP"
         const tableNumber = editData.assignedSeat
-        const capacity = await checkTableCapacity(tableNumber, isVIP)
+        const capacity = await checkTableCapacity(tableNumber, isVipFlag)
 
         if (capacity.isFull) {
           setError(
@@ -122,8 +82,8 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
       await updateAttendee(attendee.id, {
         name: editData.name.trim(),
         ticketNumber: editData.ticketNumber.trim(),
-        // region & category intentionally left unchanged for now
         assignedSeat: editData.assignedSeat || null,
+        category: categoryToSave,          // 🔥 persist VIP / non-VIP
       })
 
       await logAudit(
@@ -138,7 +98,8 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
               editData.ticketNumber !== attendee.ticketNumber
                 ? editData.ticketNumber
                 : undefined,
-            // region & category not logged since we don't edit them now
+            category:
+              categoryToSave !== attendee.category ? categoryToSave : undefined,
             assignedSeat:
               editData.assignedSeat !== attendee.assignedSeat
                 ? editData.assignedSeat
@@ -237,8 +198,6 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                   placeholder="e.g., T001"
                 />
               </div>
-
-              {/* Region & Category inputs removed from UI, but data kept in Firestore */}
             </div>
           </div>
 
@@ -268,10 +227,24 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
                   className="bg-white border-blue-200"
                   placeholder="Enter seat number (1-80)"
                 />
+
+                {/* 🔥 VIP checkbox */}
+                <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={!!editData.isVip}
+                    onChange={(e) =>
+                      setEditData({ ...editData, isVip: e.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-slate-400"
+                  />
+                  <span>Mark this delegate as VIP</span>
+                </label>
+
                 <p className="text-slate-500 text-xs mt-1">
-                  {editData.category === "VIP"
-                    ? "VIP tables have 30 seats capacity"
-                    : "Normal tables have 10 seats capacity"}
+                  {editData.isVip
+                    ? "VIP tables have 30 seats capacity."
+                    : "Standard tables have 10 seats capacity."}
                 </p>
               </div>
             </div>
