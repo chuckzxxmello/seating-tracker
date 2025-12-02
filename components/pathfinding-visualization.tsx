@@ -614,43 +614,45 @@ export function PathfindingVisualization({
         ctx.fillText(tableNum || "", pos.x, pos.y);
       }
 
-      // VIP tables (red rounded rectangles)
+      // VIP tables (red long vertical rectangles)
       else if (node.type === "vip-table") {
         const tableNum = node.label.match(/\d+/)?.[0];
-
-        const width = 44 * contentScale;
-        const height = 20 * contentScale;
-        const radius = 6 * contentScale;
-
+      
+        // long vertical bar
+        const width = 22 * contentScale;   // thinner
+        const height = 90 * contentScale;  // taller
         const x = pos.x - width / 2;
         const y = pos.y - height / 2;
-
+      
+        // main red rectangle
         ctx.fillStyle = "#DC2626";
-        ctx.beginPath();
-        drawRoundedRect(ctx, x, y, width, height, radius);
-        ctx.fill();
-
+        ctx.fillRect(x, y, width, height);
+      
+        // yellow highlight border when selected
         if (highlight) {
           const pad = 4 * contentScale;
           ctx.strokeStyle = "#FBBF24";
           ctx.lineWidth = 4;
-          ctx.beginPath();
-          drawRoundedRect(
-            ctx,
+          ctx.strokeRect(
             x - pad,
             y - pad,
             width + pad * 2,
             height + pad * 2,
-            radius + 2 * contentScale,
           );
-          ctx.stroke();
         }
-
+      
+        // vertical label text, similar to BUFFET
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(-Math.PI / 2); // vertical
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `bold ${Math.max(8, 10 * contentScale)}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(tableNum || "", pos.x, pos.y);
+      
+        const labelText = tableNum ? `VIP TABLE ${tableNum}` : "VIP TABLE";
+        ctx.fillText(labelText, 0, 0);
+        ctx.restore();
       }
     };
 
