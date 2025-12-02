@@ -1,5 +1,3 @@
-// CSV parsing and export service for attendee data
-
 export interface AttendeeCSVData {
   ticketNumber: string;
   name: string;
@@ -221,7 +219,10 @@ export function parseCSV(csvContent: string): ParseResult {
 
       // If there is no dedicated "Table" column or it's empty,
       // use the table inferred from the VIP seat code.
-      if ((table === undefined || Number.isNaN(table)) && tableFromSeat !== undefined) {
+      if (
+        (table === undefined || Number.isNaN(table)) &&
+        tableFromSeat !== undefined
+      ) {
         table = tableFromSeat;
       }
 
@@ -322,17 +323,21 @@ export function generateCSV(attendees: any[]): string {
     formatCheckInTime((a as any).checkedInTime),
   ]);
 
-  const csvContent = [
+  // >>> IMPORTANT: prepend UTF-8 BOM so Excel shows ñ, é, ü, etc properly
+  const BOM = "\uFEFF";
+
+  const csvBody = [
     headers.join(","),
     ...rows.map((r) =>
       r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
     ),
   ].join("\n");
 
-  return csvContent;
+  return BOM + csvBody;
 }
 
 export function downloadCSV(csvContent: string, filename: string): void {
+  // type is still UTF-8, BOM is already inside csvContent
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
