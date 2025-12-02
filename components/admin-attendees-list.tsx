@@ -148,6 +148,16 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       return name === q || ticket === q || category === q
     }
 
+    // ✅ NEW: full-phrase check to make "AJ Velasco" (and similar) work
+    // without changing the token-based behavior.
+    const fullQuery = tokens.join(" ")
+    if (
+      fullQuery.length > 0 &&
+      (name.includes(fullQuery) || ticket.includes(fullQuery) || category.includes(fullQuery))
+    ) {
+      return true
+    }
+
     return tokens.every((token) => {
       if (token.length <= 2) {
         return ticket.includes(token)
@@ -493,9 +503,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       {/* Pathfinding preview */}
       {selectedSeatsForPath.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-slate-900">
-            Venue Map with Shortest Path
-          </h3>
+          <h3 className="text-sm font-medium text-slate-900">Venue Map with Shortest Path</h3>
           <PathfindingVisualization
             // 🔥 NEW: highlight multiple tables at once
             seatIds={selectedSeatsForPath}
@@ -560,6 +568,13 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
               ) : (
                 paginatedAttendees.map((attendee) => {
                   const seatValue = getSeatValue(attendee)
+                  const categoryRaw = ((attendee as any).category ?? "")
+                    .toString()
+                    .trim()
+                    .toUpperCase()
+                  const isVip = categoryRaw === "VIP"
+                  const hasSeat = typeof seatValue === "number" && !Number.isNaN(seatValue)
+
                   return (
                     <tr
                       key={attendee.id}
@@ -584,7 +599,11 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                         {formatCheckInTime((attendee as any).checkedInTime)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {seatValue ? `Table ${seatValue}` : "Unassigned"}
+                        {hasSeat
+                          ? `Table ${seatValue}${isVip ? " (VIP)" : ""}`
+                          : isVip
+                            ? "VIP - Unassigned"
+                            : "Unassigned"}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span
@@ -626,8 +645,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         {/* Pagination */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
-            Showing{" "}
-            {filteredAttendees.length === 0 ? 0 : startIndex + 1}-
+            Showing {filteredAttendees.length === 0 ? 0 : startIndex + 1}-
             {Math.min(endIndex, filteredAttendees.length)} of {filteredAttendees.length} delegates
           </div>
           {totalPages > 1 && (
