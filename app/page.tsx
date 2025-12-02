@@ -141,9 +141,9 @@ export default function CheckinPage() {
 
   const seatSentence =
     seatIds.length === 0
-      ? "Your seat is not yet assigned."
+      ? "Your table is not yet assigned."
       : seatIds.length === 1
-      ? `Your assigned seat is Seat ${seatIds[0]}. Look for the highlighted table on the map below.`
+      ? `Your assigned table is Table ${seatIds[0]}. Look for the highlighted table on the map below.`
       : `Your assigned seats are Seats ${seatIds.join(
           ", "
         )}. Look for the highlighted tables on the map below.`;
