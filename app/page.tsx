@@ -19,7 +19,7 @@ export default function CheckinPage() {
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState("");
   const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]); // all matches
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +56,7 @@ export default function CheckinPage() {
 
       if (results.length > 0) {
         setSearchResults(results);
-        setSelectedAttendee(results[0]); // first result is the “active” one
+        setSelectedAttendee(results[0]); // ✅ this will hide the search card
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again."
@@ -114,7 +114,7 @@ export default function CheckinPage() {
     }
   };
 
-  // 🔥 collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
+  // collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
@@ -126,7 +126,6 @@ export default function CheckinPage() {
     )
   );
 
-  // For visualization: only force VIP/regular if exactly one seat
   const isVipForVisualization =
     seatIds.length === 1 && selectedAttendee
       ? selectedAttendee.category === "VIP"
@@ -162,10 +161,8 @@ export default function CheckinPage() {
         preload="auto"
       />
 
-      {/* Sticky header */}
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm"></header>
 
-      {/* Main content */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14 space-y-8 md:space-y-10">
         {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
@@ -186,39 +183,33 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – always visible */}
-        <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-              <Input
-                placeholder="Enter ticket number, name, or group (e.g. PMT)..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
-              />
+        {/* 🔥 Search card – HIDDEN once an attendee is selected */}
+        {!selectedAttendee && (
+          <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                <Input
+                  placeholder="Enter your name..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
+                />
+              </div>
+              <Button
+                onClick={handleSearch}
+                disabled={!searchInput || isSearching}
+                className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
+              >
+                {isSearching ? "Searching..." : "Search"}
+              </Button>
             </div>
-            <Button
-              onClick={handleSearch}
-              disabled={!searchInput || isSearching}
-              className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
-            >
-              {isSearching ? "Searching..." : "Search"}
-            </Button>
-          </div>
+            {/* ❌ removed the “Found X delegate…” line entirely */}
+          </Card>
+        )}
 
-          {searchResults.length > 0 && (
-            <p className="mt-3 text-xs md:text-sm text-muted-foreground">
-              Found <strong>{searchResults.length}</strong> delegate
-              {searchResults.length > 1 ? "s" : ""} matching "
-              <span className="font-semibold">{searchInput}</span>". All their
-              assigned tables are highlighted on the map.
-            </p>
-          )}
-        </Card>
-
-        {/* Selected attendee info */}
+        {/* Selected attendee info + check-in */}
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -228,7 +219,7 @@ export default function CheckinPage() {
                   {selectedAttendee.name}
                 </p>
 
-                {/* Seats only (no “Ticket: ...”) */}
+                {/* Seats only */}
                 {seatIds.length > 0 && (
                   <p className="text-xs md:text-sm text-muted-foreground">
                     {seatsLabel}
@@ -261,7 +252,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Venue map – multi-seat highlight, NO “Highlighted tables for this search” text */}
+        {/* Map with multi-seat highlight */}
         {seatIds.length > 0 && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="mb-2 animate-fade-in">
