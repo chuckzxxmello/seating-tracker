@@ -8,18 +8,26 @@ import { Search, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { PathfindingVisualization } from "@/components/pathfinding-visualization";
 import {
-  searchAttendees,
+  getAttendees,
   checkInAttendee,
   logAudit,
   checkTableCapacity,
+  type Attendee,
 } from "@/lib/firebase-service";
 import { useAuth } from "@/lib/auth-context";
 
 export default function CheckinPage() {
   const { user } = useAuth();
+
+  // 🔹 All attendees (loaded once)
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [hasLoadedAttendees, setHasLoadedAttendees] = useState(false);
+
+  // 🔹 Search state
   const [searchInput, setSearchInput] = useState("");
-  const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Attendee[]>([]);
+  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +51,52 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
+  // 🔹 Load attendees once
+  const loadAttendees = async () => {
+    try {
+      const data = await getAttendees();
+      setAttendees(data);
+      setHasLoadedAttendees(true);
+    } catch (err) {
+      console.error("[checkin] Error loading attendees:", err);
+      setError("Failed to load attendees. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    // Preload attendees on first mount (optional but nice)
+    loadAttendees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 🔹 Smart matching logic (same behavior as AdminAttendeesList, without exactMatch toggle)
+  const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
+    if (tokens.length === 0) return true;
+
+    const name = (att.name ?? "").toLowerCase();
+    const ticket = (att.ticketNumber ?? "").toLowerCase();
+
+    return tokens.every((token) => {
+      if (token.length <= 2) {
+        // Very short tokens (like “B3”) → only check ticket to avoid weird name matches
+        return ticket.includes(token);
+      }
+      return name.includes(token) || ticket.includes(token);
+    });
+  };
+
+  const searchLocally = (query: string): Attendee[] => {
+    const tokens = query
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (tokens.length === 0) return [];
+
+    return attendees.filter((att) => matchesSearch(att, tokens));
+  };
+
   const handleSearch = async () => {
     if (!searchInput.trim()) return;
 
@@ -52,18 +106,23 @@ export default function CheckinPage() {
     setSearchResults([]);
 
     try {
-      const results = await searchAttendees(searchInput.trim());
+      // Ensure we have attendees loaded
+      if (!hasLoadedAttendees) {
+        await loadAttendees();
+      }
+
+      const results = searchLocally(searchInput);
 
       if (results.length > 0) {
         setSearchResults(results);
-        setSelectedAttendee(results[0]); // ✅ this will hide the search card
+        setSelectedAttendee(results[0]); // ✅ triggers map + hides search card
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again."
         );
       }
     } catch (err) {
-      console.error("[v0] Search failed:", err);
+      console.error("[checkin] Search failed:", err);
       setError("Failed to search attendees. Please try again.");
     } finally {
       setIsSearching(false);
@@ -88,7 +147,7 @@ export default function CheckinPage() {
           return;
         }
       } catch (err) {
-        console.error("[v0] Error checking capacity:", err);
+        console.error("[checkin] Error checking capacity:", err);
         setError("Failed to check table capacity. Please try again.");
         return;
       }
@@ -96,7 +155,7 @@ export default function CheckinPage() {
 
     try {
       setIsSearching(true);
-      await checkInAttendee(selectedAttendee.id);
+      await checkInAttendee(selectedAttendee.id!);
       await logAudit(
         "check_in",
         user?.email || "",
@@ -107,14 +166,14 @@ export default function CheckinPage() {
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
     } catch (err) {
-      console.error("[v0] Check-in failed:", err);
+      console.error("[checkin] Check-in failed:", err);
       setError("Failed to check in. Please try again.");
     } finally {
       setIsSearching(false);
     }
   };
 
-  // collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
+  // 🔹 collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
@@ -126,12 +185,13 @@ export default function CheckinPage() {
     )
   );
 
+  // Only force VIP/regular if exactly one seat
   const isVipForVisualization =
     seatIds.length === 1 && selectedAttendee
       ? selectedAttendee.category === "VIP"
       : undefined;
 
-  // Text helpers for seats
+  // Text helpers for seats (for the PMT copy you wanted)
   const seatsLabel =
     seatIds.length === 0
       ? ""
@@ -141,9 +201,9 @@ export default function CheckinPage() {
 
   const seatSentence =
     seatIds.length === 0
-      ? "Your table is not yet assigned."
+      ? "Your seat is not yet assigned."
       : seatIds.length === 1
-      ? `Your assigned table is Table ${seatIds[0]}. Look for the highlighted table on the map below.`
+      ? `Your assigned seat is Seat ${seatIds[0]}. Look for the highlighted table on the map below.`
       : `Your assigned seats are Seats ${seatIds.join(
           ", "
         )}. Look for the highlighted tables on the map below.`;
@@ -183,14 +243,14 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* 🔥 Search card – HIDDEN once an attendee is selected */}
+        {/* Search card – hidden AFTER a match is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 <Input
-                  placeholder="Enter your name..."
+                  placeholder="Enter ticket number, name, or group (e.g. Abbey, Velasco, PMT)..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -205,7 +265,6 @@ export default function CheckinPage() {
                 {isSearching ? "Searching..." : "Search"}
               </Button>
             </div>
-            {/* ❌ removed the “Found X delegate…” line entirely */}
           </Card>
         )}
 
@@ -214,12 +273,12 @@ export default function CheckinPage() {
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1">
-                {/* Name only (e.g. PMT) */}
+                {/* Name only (e.g. Abbey Velasco, PMT) */}
                 <p className="text-sm md:text-base font-semibold">
                   {selectedAttendee.name}
                 </p>
 
-                {/* Seats only */}
+                {/* Seats only (no Ticket: ...) */}
                 {seatIds.length > 0 && (
                   <p className="text-xs md:text-sm text-muted-foreground">
                     {seatsLabel}
