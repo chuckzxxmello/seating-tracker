@@ -55,6 +55,15 @@ const formatCheckInTime = (raw: any): string => {
   })
 }
 
+// 🔢 Helper: get numeric value for ticket sorting (works with "VIP-001", "T-12", etc.)
+const getTicketSortValue = (ticketRaw: string | number | null | undefined): number => {
+  if (ticketRaw == null) return Number.POSITIVE_INFINITY
+  const str = String(ticketRaw)
+  const match = str.match(/\d+/)
+  if (!match) return Number.POSITIVE_INFINITY
+  return Number.parseInt(match[0], 10)
+}
+
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
@@ -152,8 +161,17 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       filtered = filtered.filter((att) => matchesSearch(att, tokens, isExact))
     }
 
-    setFilteredAttendees(filtered)
-    return filtered
+    // 🔢 Ensure table is sorted numerically by ticket number
+    const sorted = filtered.slice().sort((a, b) => {
+      const aVal = getTicketSortValue(a.ticketNumber as any)
+      const bVal = getTicketSortValue(b.ticketNumber as any)
+      if (aVal !== bVal) return aVal - bVal
+      // tie-breaker to keep things stable
+      return (a.ticketNumber ?? "").toString().localeCompare((b.ticketNumber ?? "").toString())
+    })
+
+    setFilteredAttendees(sorted)
+    return sorted
   }
 
   // 🔥 NEW: compute ALL seat numbers from current matches
@@ -188,9 +206,11 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
     // If *exactly one* attendee matched, we keep VIP/regular awareness.
     if (matches.length === 1 && typeof matches[0].assignedSeat === "number") {
-      setSelectedAttendeeIsVip(matches[0].category === "VIP")
+      const categoryRaw = (matches[0].category ?? "").toString().trim().toUpperCase()
+      // Strict VIP check: only when the category is exactly "VIP"
+      setSelectedAttendeeIsVip(categoryRaw === "VIP")
     } else {
-      // multiple attendees → admin mode (no VIP filter)
+      // multiple attendees → admin mode (no VIP filter; treat as regular)
       setSelectedAttendeeIsVip(null)
     }
   }
@@ -382,11 +402,17 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     <div className="space-y-6">
       {/* Top actions */}
       <div className="flex gap-3 flex-wrap items-center">
-        <Button onClick={() => setShowCSVImport(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+        <Button
+          onClick={() => setShowCSVImport(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+        >
           <Upload className="w-4 h-4" />
           Import CSV
         </Button>
-        <Button onClick={() => setShowAddDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+        <Button
+          onClick={() => setShowAddDialog(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+        >
           <Plus className="w-4 h-4" />
           Add Delegate
         </Button>
@@ -453,15 +479,17 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       {/* Pathfinding preview */}
       {selectedSeatsForPath.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-slate-900">Venue Map with Shortest Path</h3>
+          <h3 className="text-sm font-medium text-slate-900">
+            Venue Map with Shortest Path
+          </h3>
           <PathfindingVisualization
             // 🔥 NEW: highlight multiple tables at once
             seatIds={selectedSeatsForPath}
-            // If exactly one attendee matched AND we know VIP/regular → keep old behavior.
+            // Default to REGULAR unless we explicitly know it's VIP
             isVip={
-              selectedSeatsForPath.length === 1 && selectedAttendeeIsVip != null
-                ? selectedAttendeeIsVip
-                : undefined
+              selectedSeatsForPath.length === 1
+                ? !!selectedAttendeeIsVip // true only when we know it's VIP
+                : false // multi-seat → treat as regular / non-VIP
             }
             imageSrc="/images/design-mode/9caa3868-4cd5-468f-9fe7-4dc613433d03.jfif.jpeg"
             showBackground={true}
@@ -472,7 +500,8 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       {/* Table */}
       <Card className="bg-white border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          {/* font-table forces the Noto Sans font only inside the table */}
+          <table className="w-full font-table">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 {/* NEW: checkbox column */}
@@ -481,15 +510,29 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                     type="checkbox"
                     className="h-4 w-4 rounded border-slate-400"
                     checked={allOnPageSelected}
-                    onChange={(e) => handleSelectAllOnPage(e.target.checked, paginatedAttendees)}
+                    onChange={(e) =>
+                      handleSelectAllOnPage(e.target.checked, paginatedAttendees)
+                    }
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Ticket</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Check-in Time</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Table</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Ticket
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Check-in Time
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Table
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -502,7 +545,10 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                 </tr>
               ) : (
                 paginatedAttendees.map((attendee) => (
-                  <tr key={attendee.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <tr
+                    key={attendee.id}
+                    className="border-b border-slate-200 hover:bg-slate-50"
+                  >
                     {/* per-row selection checkbox */}
                     <td className="px-6 py-4">
                       <input
@@ -512,18 +558,26 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                         onChange={() => attendee.id && toggleSelectAttendee(attendee.id)}
                       />
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">{attendee.name}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{attendee.ticketNumber}</td>
+                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                      {attendee.name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {attendee.ticketNumber}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {formatCheckInTime((attendee as any).checkedInTime)}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      {attendee.assignedSeat ? `Table ${attendee.assignedSeat}` : "Unassigned"}
+                      {attendee.assignedSeat
+                        ? `Table ${attendee.assignedSeat}`
+                        : "Unassigned"}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${
-                          attendee.checkedIn ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                          attendee.checkedIn
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
                         }`}
                       >
                         {attendee.checkedIn ? "Checked In" : "Pending"}
@@ -557,7 +611,12 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         {/* Pagination */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
-            Showing {filteredAttendees.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredAttendees.length)} of{" "}
+            Showing{" "}
+            {filteredAttendees.length === 0
+              ? 0
+              : startIndex + 1}
+            -
+            {Math.min(endIndex, filteredAttendees.length)} of{" "}
             {filteredAttendees.length} delegates
           </div>
           {totalPages > 1 && (
@@ -616,11 +675,17 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       )}
 
       {showAddDialog && (
-        <AddAttendeeDialog onClose={() => setShowAddDialog(false)} onSuccess={loadAttendees} />
+        <AddAttendeeDialog
+          onClose={() => setShowAddDialog(false)}
+          onSuccess={loadAttendees}
+        />
       )}
 
       {showCSVImport && (
-        <CSVImportDialog onClose={() => setShowCSVImport(false)} onSuccess={loadAttendees} />
+        <CSVImportDialog
+          onClose={() => setShowCSVImport(false)}
+          onSuccess={loadAttendees}
+        />
       )}
     </div>
   )
