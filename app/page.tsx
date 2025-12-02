@@ -69,18 +69,32 @@ export default function CheckinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Smart matching logic (same behavior as AdminAttendeesList, without exactMatch toggle)
+  // 🔹 Normalization helper for safer, case-insensitive matching
+  const normalize = (value: string | null | undefined): string =>
+    (value ?? "")
+      .toString()
+      .normalize("NFKD") // handle accents if any
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  // 🔹 Smart matching logic (same behavior intent as before, but fixed for 2-char tokens like "AJ")
   const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
     if (tokens.length === 0) return true;
 
-    const name = (att.name ?? "").toLowerCase();
-    const ticket = (att.ticketNumber ?? "").toLowerCase();
+    const name = normalize(att.name);
+    const ticket = normalize(att.ticketNumber);
 
-    return tokens.every((token) => {
-      if (token.length <= 2) {
-        // Very short tokens (like “B3”) → only check ticket to avoid weird name matches
+    return tokens.every((rawToken) => {
+      const token = normalize(rawToken);
+      if (!token) return true;
+
+      // If token is very short and has a digit (e.g. "B3"), treat it as ticket-focused search
+      if (token.length <= 2 && /\d/.test(token)) {
         return ticket.includes(token);
       }
+
+      // Otherwise, match against BOTH name and ticket
       return name.includes(token) || ticket.includes(token);
     });
   };
@@ -88,7 +102,6 @@ export default function CheckinPage() {
   const searchLocally = (query: string): Attendee[] => {
     const tokens = query
       .trim()
-      .toLowerCase()
       .split(/\s+/)
       .filter(Boolean);
 
@@ -245,7 +258,7 @@ export default function CheckinPage() {
 
         {/* Search card – hidden AFTER a match is selected */}
         {!selectedAttendee && (
-          <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
+          <Card className="bg-card/90 border border-border p-4 md:8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
