@@ -45,6 +45,59 @@ function cleanCell(value: string): string {
   return v;
 }
 
+// How many VIP seat labels share the same VIP table.
+// Example: VIP1 & VIP2 → VIP Table 1; VIP3 & VIP4 → VIP Table 2.
+const VIP_SEATS_PER_TABLE = 2;
+
+function parseIntSafe(value: string): number | undefined {
+  const n = Number.parseInt(value, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+/**
+ * Interpret a "Seat" cell like:
+ *  - "VIP1" → { seat: 1, tableFromSeat: 1, inferredCategory: "VIP" }
+ *  - "VIP2" → { seat: 2, tableFromSeat: 1, inferredCategory: "VIP" }
+ *  - "5"    → { seat: 5 }
+ */
+function interpretSeatField(seatRaw: string): {
+  seat?: number;
+  tableFromSeat?: number;
+  inferredCategory?: string;
+} {
+  const trimmed = seatRaw.trim();
+  if (!trimmed || trimmed === "-") return {};
+
+  const upper = trimmed.toUpperCase();
+
+  // VIP pattern e.g. "VIP1", "VIP 1"
+  const vipMatch = upper.match(/^VIP\s*(\d+)$/);
+  if (vipMatch) {
+    const seatIndex = parseIntSafe(vipMatch[1]);
+    if (seatIndex === undefined) return {};
+
+    const tableFromSeat =
+      VIP_SEATS_PER_TABLE > 0
+        ? Math.ceil(seatIndex / VIP_SEATS_PER_TABLE)
+        : seatIndex;
+
+    return {
+      seat: seatIndex,
+      tableFromSeat,
+      inferredCategory: "VIP",
+    };
+  }
+
+  // Plain numeric seat, e.g. "5"
+  const numericSeat = parseIntSafe(trimmed);
+  if (numericSeat !== undefined) {
+    return { seat: numericSeat };
+  }
+
+  // Unknown seat pattern → ignore (you can extend this later)
+  return {};
+}
+
 export function parseCSV(csvContent: string): ParseResult {
   const lines = csvContent.trim().split("\n");
   const errors: string[] = [];
@@ -124,14 +177,9 @@ export function parseCSV(csvContent: string): ParseResult {
     const rawEmail = emailIdx >= 0 ? values[emailIdx] ?? "" : "";
     const regionRaw = regionIdx >= 0 ? values[regionIdx] ?? "" : "";
     const categoryRaw = categoryIdx >= 0 ? values[categoryIdx] ?? "" : "";
-    const table =
-      tableIdx >= 0 && values[tableIdx]
-        ? Number.parseInt(values[tableIdx], 10)
-        : undefined;
-    const seat =
-      seatIdx >= 0 && values[seatIdx]
-        ? Number.parseInt(values[seatIdx], 10)
-        : undefined;
+
+    const tableRaw = tableIdx >= 0 ? values[tableIdx] ?? "" : "";
+    const seatRaw = seatIdx >= 0 ? values[seatIdx] ?? "" : "";
 
     const checkInStatusRaw =
       checkInStatusIdx >= 0 ? values[checkInStatusIdx] ?? "" : "";
@@ -149,9 +197,39 @@ export function parseCSV(csvContent: string): ParseResult {
       continue;
     }
 
-    // region & category are now optional and unvalidated
+    // region is optional
     const regionClean = regionRaw.trim() || undefined;
-    const categoryClean = categoryRaw.trim() || undefined;
+
+    // Start with whatever category the CSV gives us
+    let categoryClean = categoryRaw.trim() || undefined;
+
+    // Parse table from "Table" column, if present
+    let table: number | undefined;
+    if (tableRaw && tableRaw !== "-") {
+      table = parseIntSafe(tableRaw);
+    }
+
+    // Parse "Seat" column, including VIP mapping
+    let seat: number | undefined;
+    if (seatRaw) {
+      const { seat: parsedSeat, tableFromSeat, inferredCategory } =
+        interpretSeatField(seatRaw);
+
+      if (parsedSeat !== undefined) {
+        seat = parsedSeat;
+      }
+
+      // If there is no dedicated "Table" column or it's empty,
+      // use the table inferred from the VIP seat code.
+      if ((table === undefined || Number.isNaN(table)) && tableFromSeat !== undefined) {
+        table = tableFromSeat;
+      }
+
+      // If category was not explicitly set, use VIP from the seat code.
+      if (!categoryClean && inferredCategory) {
+        categoryClean = inferredCategory;
+      }
+    }
 
     const email = rawEmail || `${ticket}@event.local`;
 
