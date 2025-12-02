@@ -19,6 +19,10 @@ export default function CheckinPage() {
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState("");
   const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
+
+  // 🔥 NEW: keep ALL matched attendees (for multi-seat highlight)
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,11 +54,17 @@ export default function CheckinPage() {
     setIsSearching(true);
     setError(null);
     setSelectedAttendee(null);
+    setSearchResults([]); // clear previous results while searching
 
     try {
       const results = await searchAttendees(searchInput.trim());
+
       if (results.length > 0) {
-        setSelectedAttendee(results[0]); // success → show map only (search card hidden)
+        // 🔥 keep ALL matches for map highlighting
+        setSearchResults(results);
+
+        // still pick the first one as the "focused" attendee for check-in
+        setSelectedAttendee(results[0]);
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again."
@@ -105,7 +115,7 @@ export default function CheckinPage() {
         }
       );
 
-      // Mark as checked-in and KEEP the attendee on screen (no more auto-reset/search again)
+      // Mark as checked-in and KEEP the attendee on screen
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
     } catch (err) {
       console.error("[v0] Check-in failed:", err);
@@ -115,13 +125,30 @@ export default function CheckinPage() {
     }
   };
 
+  // 🔥 NEW: collect ALL seat numbers from current search matches
+  const seatIds: number[] = Array.from(
+    new Set(
+      searchResults
+        .map((att) => att.assignedSeat)
+        .filter(
+          (seat: any): seat is number =>
+            typeof seat === "number" && !Number.isNaN(seat)
+        )
+    )
+  );
+
+  // In multi-seat mode, we don't force VIP/regular filtering → admin-like behavior
+  const isVipForVisualization =
+    seatIds.length === 1 && selectedAttendee
+      ? selectedAttendee.category === "VIP"
+      : undefined;
+
   return (
     <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
       {/* subtle star / twinkle overlay */}
       <div className="twinkle-layer" aria-hidden="true" />
 
-      {/* background music – IMPORTANT: replace src with your own mp3 file.
-          You can't directly use a YouTube URL as an <audio> src. */}
+      {/* background music – IMPORTANT: replace src with your own mp3 file. */}
       <audio
         ref={audioRef}
         src="/audio/legacy-night-bgm.mp3"
@@ -153,43 +180,67 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – hidden when an attendee is successfully found */}
-        {!selectedAttendee && (
-          <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-                <Input
-                  placeholder="Enter ticket number or name..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
-                />
-              </div>
-              <Button
-                onClick={handleSearch}
-                disabled={!searchInput || isSearching}
-                className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
-              >
-                {isSearching ? "Searching..." : "Search"}
-              </Button>
+        {/* 🔥 Search card – ALWAYS visible now (same spirit as admin page) */}
+        <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+              <Input
+                placeholder="Enter ticket number, name, or group (e.g. PMT)..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="pl-10 md:pl-12 h-11 md:h-12 text-base md:text-lg bg-background/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-foreground focus-visible:border-foreground"
+              />
             </div>
-          </Card>
-        )}
+            <Button
+              onClick={handleSearch}
+              disabled={!searchInput || isSearching}
+              className="w-full sm:w-auto h-11 md:h-12 px-6 md:px-8 btn-theme-light"
+            >
+              {isSearching ? "Searching..." : "Search"}
+            </Button>
+          </div>
 
-        {/* Selected attendee + map + check-in actions (search card hidden in this state) */}
+          {/* optional small info about how many we matched */}
+          {searchResults.length > 0 && (
+            <p className="mt-3 text-xs md:text-sm text-muted-foreground">
+              Found <strong>{searchResults.length}</strong> delegate
+              {searchResults.length > 1 ? "s" : ""} matching "
+              <span className="font-semibold">{searchInput}</span>". All their
+              assigned tables are highlighted on the map.
+            </p>
+          )}
+        </Card>
+
+        {/* Selected attendee + check-in actions (first match by default) */}
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-3 md:p-4 rounded-lg leading-relaxed">
-                Your assigned seat is{" "}
-                <strong className="text-primary">
-                  Seat {selectedAttendee.assignedSeat || "Not Yet Assigned"}
-                </strong>
-                . Look for the highlighted table with the orange circle on the
-                map below.
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm md:text-base font-semibold">
+                  {selectedAttendee.name}
+                </p>
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  Ticket: <strong>{selectedAttendee.ticketNumber}</strong>
+                  {selectedAttendee.assignedSeat && (
+                    <>
+                      {" "}
+                      • Seat{" "}
+                      <strong>{selectedAttendee.assignedSeat}</strong>
+                    </>
+                  )}
+                </p>
+                <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-2 md:p-3 rounded-lg leading-relaxed">
+                  Your assigned seat is{" "}
+                  <strong className="text-primary">
+                    {selectedAttendee.assignedSeat
+                      ? `Seat ${selectedAttendee.assignedSeat}`
+                      : "Not Yet Assigned"}
+                  </strong>
+                  . Look for the highlighted table(s) on the map below.
+                </p>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {!selectedAttendee.checkedIn ? (
@@ -209,16 +260,25 @@ export default function CheckinPage() {
                 )}
               </div>
             </div>
+          </Card>
+        )}
 
-            {selectedAttendee.assignedSeat && (
-              <div className="mb-2 animate-fade-in">
-                <PathfindingVisualization
-                  seatId={selectedAttendee.assignedSeat}
-                  isVip={selectedAttendee.category === "VIP"}
-                  showBackground={false}
-                />
-              </div>
-            )}
+        {/* 🔥 Venue map – MULTI-SEAT HIGHLIGHT like in the admin list */}
+        {seatIds.length > 0 && (
+          <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Highlighted tables for this search:{" "}
+              <strong>{seatIds.join(", ")}</strong>
+            </p>
+            <div className="mb-2 animate-fade-in">
+              <PathfindingVisualization
+                // 🔑 key part: pass ALL seat IDs
+                seatIds={seatIds}
+                // if only one seat and we know VIP → keep old behavior; otherwise admin-like mode
+                isVip={isVipForVisualization}
+                showBackground={false}
+              />
+            </div>
           </Card>
         )}
       </main>
