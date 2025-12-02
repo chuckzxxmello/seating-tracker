@@ -64,6 +64,21 @@ const getTicketSortValue = (ticketRaw: string | number | null | undefined): numb
   return Number.parseInt(match[0], 10)
 }
 
+// 🔁 Helper: get a numeric seat/table value from attendee, supporting both
+// `assignedSeat` and `seat` (to match CSV service behavior).
+const getSeatValue = (att: Attendee): number | undefined => {
+  const anyAtt = att as any
+  const val =
+    typeof anyAtt.assignedSeat === "number"
+      ? anyAtt.assignedSeat
+      : typeof anyAtt.seat === "number"
+        ? anyAtt.seat
+        : undefined
+
+  if (typeof val === "number" && !Number.isNaN(val)) return val
+  return undefined
+}
+
 export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps) {
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([])
@@ -115,9 +130,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
   /**
    * Smart matching logic.
-   * - Exact mode: full string must equal full name OR full ticket.
+   * - Exact mode: full string must equal full name OR full ticket OR full category.
    * - Default: query is split into tokens; every token must match
-   *   either name or ticket.
+   *   either name or ticket or category.
    *   - VERY short tokens (<=2 chars) are **only** checked against ticket
    *     to avoid "Kuya B" → "Kuya Bernard Macas" type matches.
    */
@@ -126,17 +141,18 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
     const name = (att.name ?? "").toLowerCase()
     const ticket = (att.ticketNumber ?? "").toLowerCase()
+    const category = (att as any).category ? String((att as any).category).toLowerCase() : ""
 
     if (isExact) {
       const q = tokens.join(" ")
-      return name === q || ticket === q
+      return name === q || ticket === q || category === q
     }
 
     return tokens.every((token) => {
       if (token.length <= 2) {
         return ticket.includes(token)
       }
-      return name.includes(token) || ticket.includes(token)
+      return name.includes(token) || ticket.includes(token) || category.includes(token)
     })
   }
 
@@ -175,11 +191,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   }
 
   // 🔥 NEW: compute ALL seat numbers from current matches
-  const syncPathSelection = (
-    list: Attendee[],
-    search: string,
-    isExact: boolean,
-  ) => {
+  const syncPathSelection = (list: Attendee[], search: string, isExact: boolean) => {
     const tokens = search
       .trim()
       .toLowerCase()
@@ -195,9 +207,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     // all attendees that match the search
     const matches = list.filter((att) => matchesSearch(att, tokens, isExact))
 
-    // collect all assignedSeat values
+    // collect all seat/table values (supporting both assignedSeat + seat)
     const seats = matches
-      .map((att) => att.assignedSeat)
+      .map((att) => getSeatValue(att))
       .filter((seat): seat is number => typeof seat === "number" && !Number.isNaN(seat))
 
     const uniqueSeats = Array.from(new Set(seats))
@@ -205,10 +217,16 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     setSelectedSeatsForPath(uniqueSeats)
 
     // If *exactly one* attendee matched, we keep VIP/regular awareness.
-    if (matches.length === 1 && typeof matches[0].assignedSeat === "number") {
-      const categoryRaw = (matches[0].category ?? "").toString().trim().toUpperCase()
-      // Strict VIP check: only when the category is exactly "VIP"
-      setSelectedAttendeeIsVip(categoryRaw === "VIP")
+    if (matches.length === 1) {
+      const seatVal = getSeatValue(matches[0])
+      if (typeof seatVal === "number") {
+        const categoryRaw = ((matches[0] as any).category ?? "").toString().trim().toUpperCase()
+        // Strict VIP check: only when the category is exactly "VIP"
+        setSelectedAttendeeIsVip(categoryRaw === "VIP")
+      } else {
+        // No seat → no VIP route
+        setSelectedAttendeeIsVip(null)
+      }
     } else {
       // multiple attendees → admin mode (no VIP filter; treat as regular)
       setSelectedAttendeeIsVip(null)
@@ -350,9 +368,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       setIsLoading(true)
       await Promise.all(selectedIds.map((id) => deleteAttendee(id)))
 
-      const updated = attendees.filter(
-        (att) => !att.id || !selectedIds.includes(att.id),
-      )
+      const updated = attendees.filter((att) => !att.id || !selectedIds.includes(att.id))
       setAttendees(updated)
 
       const filtered = filterAttendees(updated, {
@@ -386,9 +402,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   // computed select-all checkbox state for current page
   const allOnPageSelected =
     paginatedAttendees.length > 0 &&
-    paginatedAttendees.every(
-      (a) => a.id && selectedIds.includes(a.id),
-    )
+    paginatedAttendees.every((a) => a.id && selectedIds.includes(a.id))
 
   if (isLoading) {
     return (
@@ -470,7 +484,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                 onChange={(e) => handleExactMatchToggle(e.target.checked)}
                 className="h-3 w-3 rounded border-slate-400"
               />
-              <span>Exact match (full name or ticket only)</span>
+              <span>Exact match (full name, ticket, or category only)</span>
             </label>
           </div>
         </div>
@@ -544,65 +558,66 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                   </td>
                 </tr>
               ) : (
-                paginatedAttendees.map((attendee) => (
-                  <tr
-                    key={attendee.id}
-                    className="border-b border-slate-200 hover:bg-slate-50"
-                  >
-                    {/* per-row selection checkbox */}
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-400"
-                        checked={!!attendee.id && selectedIds.includes(attendee.id)}
-                        onChange={() => attendee.id && toggleSelectAttendee(attendee.id)}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">
-                      {attendee.name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {attendee.ticketNumber}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {formatCheckInTime((attendee as any).checkedInTime)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {attendee.assignedSeat
-                        ? `Table ${attendee.assignedSeat}`
-                        : "Unassigned"}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          attendee.checkedIn
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {attendee.checkedIn ? "Checked In" : "Pending"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setEditingAttendee(attendee)}
-                          className="text-blue-600 hover:text-blue-700 p-1"
-                          title="Edit or assign seat"
+                paginatedAttendees.map((attendee) => {
+                  const seatValue = getSeatValue(attendee)
+                  return (
+                    <tr
+                      key={attendee.id}
+                      className="border-b border-slate-200 hover:bg-slate-50"
+                    >
+                      {/* per-row selection checkbox */}
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-400"
+                          checked={!!attendee.id && selectedIds.includes(attendee.id)}
+                          onChange={() => attendee.id && toggleSelectAttendee(attendee.id)}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                        {attendee.name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {attendee.ticketNumber}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {formatCheckInTime((attendee as any).checkedInTime)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {seatValue ? `Table ${seatValue}` : "Unassigned"}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            attendee.checkedIn
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
                         >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => attendee.id && handleDelete(attendee.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {attendee.checkedIn ? "Checked In" : "Pending"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingAttendee(attendee)}
+                            className="text-blue-600 hover:text-blue-700 p-1"
+                            title="Edit or assign seat"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => attendee.id && handleDelete(attendee.id)}
+                            className="text-red-600 hover:text-red-700 p-1"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -612,12 +627,8 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
             Showing{" "}
-            {filteredAttendees.length === 0
-              ? 0
-              : startIndex + 1}
-            -
-            {Math.min(endIndex, filteredAttendees.length)} of{" "}
-            {filteredAttendees.length} delegates
+            {filteredAttendees.length === 0 ? 0 : startIndex + 1}-
+            {Math.min(endIndex, filteredAttendees.length)} of {filteredAttendees.length} delegates
           </div>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
@@ -675,17 +686,11 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
       )}
 
       {showAddDialog && (
-        <AddAttendeeDialog
-          onClose={() => setShowAddDialog(false)}
-          onSuccess={loadAttendees}
-        />
+        <AddAttendeeDialog onClose={() => setShowAddDialog(false)} onSuccess={loadAttendees} />
       )}
 
       {showCSVImport && (
-        <CSVImportDialog
-          onClose={() => setShowCSVImport(false)}
-          onSuccess={loadAttendees}
-        />
+        <CSVImportDialog onClose={() => setShowCSVImport(false)} onSuccess={loadAttendees} />
       )}
     </div>
   )
