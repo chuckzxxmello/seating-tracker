@@ -78,13 +78,24 @@ export default function CheckinPage() {
       .trim()
       .toLowerCase();
 
-  // 🔹 Smart matching logic (same behavior intent as before, but fixed for 2-char tokens like "AJ")
+  // 🔹 Smart matching logic (same behavior intent as before, but fixed for full-phrase like "AJ Velasco")
   const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
     if (tokens.length === 0) return true;
 
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
 
+    // ✅ NEW: full-phrase check — this is what makes "AJ Velasco" work
+    // without changing the existing token-based behavior.
+    const fullQuery = normalize(tokens.join(" "));
+    if (
+      fullQuery &&
+      (name.includes(fullQuery) || ticket.includes(fullQuery))
+    ) {
+      return true;
+    }
+
+    // Existing per-token behavior kept as-is
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
