@@ -464,6 +464,28 @@ export function PathfindingVisualization({
       y: (y - centeredMinY) * contentScale,
     });
 
+    // helper for rounded rectangles (used by VIP tables)
+    const drawRoundedRect = (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      r: number,
+    ) => {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    };
+
     const drawNode = (node: VenueNode) => {
       const highlight = isSeatNodeSelected(node);
       const pos = toCanvas(node.x, node.y);
@@ -487,7 +509,7 @@ export function PathfindingVisualization({
           pos.x - 15 * contentScale,
           pos.y - 30 * contentScale,
           30 * contentScale,
-          60 * contentScale, // ✅ added height argument
+          60 * contentScale,
         );
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `${Math.max(8, 10 * contentScale)}px sans-serif`;
@@ -566,10 +588,13 @@ export function PathfindingVisualization({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("E", pos.x, pos.y);
-      } else if (node.type === "table" || node.type === "vip-table") {
+      }
+
+      // regular tables (blue circles)
+      else if (node.type === "table") {
         const tableNum = node.label.match(/\d+/)?.[0];
 
-        ctx.fillStyle = node.type === "vip-table" ? "#DC2626" : "#1E40AF";
+        ctx.fillStyle = "#1E40AF";
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, 12 * contentScale, 0, Math.PI * 2);
         ctx.fill();
@@ -579,6 +604,45 @@ export function PathfindingVisualization({
           ctx.lineWidth = 4;
           ctx.beginPath();
           ctx.arc(pos.x, pos.y, 18 * contentScale, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `bold ${Math.max(8, 10 * contentScale)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(tableNum || "", pos.x, pos.y);
+      }
+
+      // VIP tables (red rounded rectangles)
+      else if (node.type === "vip-table") {
+        const tableNum = node.label.match(/\d+/)?.[0];
+
+        const width = 44 * contentScale;
+        const height = 20 * contentScale;
+        const radius = 6 * contentScale;
+
+        const x = pos.x - width / 2;
+        const y = pos.y - height / 2;
+
+        ctx.fillStyle = "#DC2626";
+        ctx.beginPath();
+        drawRoundedRect(ctx, x, y, width, height, radius);
+        ctx.fill();
+
+        if (highlight) {
+          const pad = 4 * contentScale;
+          ctx.strokeStyle = "#FBBF24";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          drawRoundedRect(
+            ctx,
+            x - pad,
+            y - pad,
+            width + pad * 2,
+            height + pad * 2,
+            radius + 2 * contentScale,
+          );
           ctx.stroke();
         }
 
