@@ -19,10 +19,7 @@ export default function CheckinPage() {
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState("");
   const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
-
-  // 🔥 NEW: keep ALL matched attendees (for multi-seat highlight)
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-
+  const [searchResults, setSearchResults] = useState<any[]>([]); // all matches
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,11 +32,9 @@ export default function CheckinPage() {
     const handleFirstInteraction = () => {
       if (audioRef.current) {
         audioRef.current.volume = 0.15;
-        audioRef.current
-          .play()
-          .catch(() => {
-            // ignore autoplay errors
-          });
+        audioRef.current.play().catch(() => {
+          // ignore autoplay errors
+        });
       }
       window.removeEventListener("click", handleFirstInteraction);
     };
@@ -54,17 +49,14 @@ export default function CheckinPage() {
     setIsSearching(true);
     setError(null);
     setSelectedAttendee(null);
-    setSearchResults([]); // clear previous results while searching
+    setSearchResults([]);
 
     try {
       const results = await searchAttendees(searchInput.trim());
 
       if (results.length > 0) {
-        // 🔥 keep ALL matches for map highlighting
         setSearchResults(results);
-
-        // still pick the first one as the "focused" attendee for check-in
-        setSelectedAttendee(results[0]);
+        setSelectedAttendee(results[0]); // first result is the “active” one
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again."
@@ -110,12 +102,9 @@ export default function CheckinPage() {
         user?.email || "",
         selectedAttendee.ticketNumber,
         selectedAttendee.assignedSeat,
-        {
-          name: selectedAttendee.name,
-        }
+        { name: selectedAttendee.name }
       );
 
-      // Mark as checked-in and KEEP the attendee on screen
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
     } catch (err) {
       console.error("[v0] Check-in failed:", err);
@@ -125,7 +114,7 @@ export default function CheckinPage() {
     }
   };
 
-  // 🔥 NEW: collect ALL seat numbers from current search matches
+  // 🔥 collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
@@ -137,18 +126,35 @@ export default function CheckinPage() {
     )
   );
 
-  // In multi-seat mode, we don't force VIP/regular filtering → admin-like behavior
+  // For visualization: only force VIP/regular if exactly one seat
   const isVipForVisualization =
     seatIds.length === 1 && selectedAttendee
       ? selectedAttendee.category === "VIP"
       : undefined;
+
+  // Text helpers for seats
+  const seatsLabel =
+    seatIds.length === 0
+      ? ""
+      : seatIds.length === 1
+      ? `Seat ${seatIds[0]}`
+      : `Seat ${seatIds.join(", ")}`;
+
+  const seatSentence =
+    seatIds.length === 0
+      ? "Your seat is not yet assigned."
+      : seatIds.length === 1
+      ? `Your assigned seat is Seat ${seatIds[0]}. Look for the highlighted table on the map below.`
+      : `Your assigned seats are Seats ${seatIds.join(
+          ", "
+        )}. Look for the highlighted tables on the map below.`;
 
   return (
     <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
       {/* subtle star / twinkle overlay */}
       <div className="twinkle-layer" aria-hidden="true" />
 
-      {/* background music – IMPORTANT: replace src with your own mp3 file. */}
+      {/* background music */}
       <audio
         ref={audioRef}
         src="/audio/legacy-night-bgm.mp3"
@@ -156,12 +162,12 @@ export default function CheckinPage() {
         preload="auto"
       />
 
-      {/* Sticky header if you want controls later */}
+      {/* Sticky header */}
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm"></header>
 
       {/* Main content */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14 space-y-8 md:space-y-10">
-        {/* Logo fade-in */}
+        {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
           <Image
             src="/images/home-mark.png"
@@ -180,7 +186,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* 🔥 Search card – ALWAYS visible now (same spirit as admin page) */}
+        {/* Search card – always visible */}
         <Card className="bg-card/90 border border-border p-4 md:p-8 shadow-lg animate-hero-card backdrop-blur">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
@@ -202,7 +208,6 @@ export default function CheckinPage() {
             </Button>
           </div>
 
-          {/* optional small info about how many we matched */}
           {searchResults.length > 0 && (
             <p className="mt-3 text-xs md:text-sm text-muted-foreground">
               Found <strong>{searchResults.length}</strong> delegate
@@ -213,32 +218,25 @@ export default function CheckinPage() {
           )}
         </Card>
 
-        {/* Selected attendee + check-in actions (first match by default) */}
+        {/* Selected attendee info */}
         {selectedAttendee && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1">
+                {/* Name only (e.g. PMT) */}
                 <p className="text-sm md:text-base font-semibold">
                   {selectedAttendee.name}
                 </p>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Ticket: <strong>{selectedAttendee.ticketNumber}</strong>
-                  {selectedAttendee.assignedSeat && (
-                    <>
-                      {" "}
-                      • Seat{" "}
-                      <strong>{selectedAttendee.assignedSeat}</strong>
-                    </>
-                  )}
-                </p>
+
+                {/* Seats only (no “Ticket: ...”) */}
+                {seatIds.length > 0 && (
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    {seatsLabel}
+                  </p>
+                )}
+
                 <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-2 md:p-3 rounded-lg leading-relaxed">
-                  Your assigned seat is{" "}
-                  <strong className="text-primary">
-                    {selectedAttendee.assignedSeat
-                      ? `Seat ${selectedAttendee.assignedSeat}`
-                      : "Not Yet Assigned"}
-                  </strong>
-                  . Look for the highlighted table(s) on the map below.
+                  {seatSentence}
                 </p>
               </div>
 
@@ -263,18 +261,12 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* 🔥 Venue map – MULTI-SEAT HIGHLIGHT like in the admin list */}
+        {/* Venue map – multi-seat highlight, NO “Highlighted tables for this search” text */}
         {seatIds.length > 0 && (
           <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Highlighted tables for this search:{" "}
-              <strong>{seatIds.join(", ")}</strong>
-            </p>
             <div className="mb-2 animate-fade-in">
               <PathfindingVisualization
-                // 🔑 key part: pass ALL seat IDs
                 seatIds={seatIds}
-                // if only one seat and we know VIP → keep old behavior; otherwise admin-like mode
                 isVip={isVipForVisualization}
                 showBackground={false}
               />
