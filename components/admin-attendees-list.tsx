@@ -71,6 +71,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const [showCSVImport, setShowCSVImport] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
+  // 🔥 NEW: selection state for bulk delete
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
   const ITEMS_PER_PAGE = 50
 
   useEffect(() => {
@@ -91,6 +94,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
       // keep map selection in sync after loading
       syncPathSelection(filtered, searchQuery, exactMatch)
+
+      // clear selection since data reloaded
+      setSelectedIds([])
     } catch (error) {
       console.error("[v0] Error loading attendees:", error)
     } finally {
@@ -230,6 +236,9 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
 
       // re-sync path selection after delete
       syncPathSelection(filtered, searchQuery, exactMatch)
+
+      // remove from selection if present
+      setSelectedIds((prev) => prev.filter((id) => id !== attendeeId))
     } catch (error) {
       console.error("[v0] Error deleting attendee:", error)
       alert("Failed to delete attendee")
@@ -252,6 +261,98 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
     }
   }
 
+  // 🔥 NEW: bulk selection helpers
+  const toggleSelectAttendee = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id],
+    )
+  }
+
+  const handleSelectAllOnPage = (checked: boolean, paginatedAttendees: Attendee[]) => {
+    const idsOnPage = paginatedAttendees
+      .map((a) => a.id)
+      .filter((id): id is string => Boolean(id))
+
+    if (!idsOnPage.length) return
+
+    setSelectedIds((prev) => {
+      if (checked) {
+        // Add all ids on this page
+        const set = new Set(prev)
+        idsOnPage.forEach((id) => set.add(id))
+        return Array.from(set)
+      } else {
+        // Remove all ids on this page
+        return prev.filter((id) => !idsOnPage.includes(id))
+      }
+    })
+  }
+
+  // 🔥 NEW: delete ALL delegates
+  const handleDeleteAll = async () => {
+    if (!attendees.length) return
+
+    const confirmed = confirm("Are you sure you want to delete all data?")
+    if (!confirmed) return
+
+    try {
+      setIsLoading(true)
+      const idsToDelete = attendees
+        .map((a) => a.id)
+        .filter((id): id is string => Boolean(id))
+
+      await Promise.all(idsToDelete.map((id) => deleteAttendee(id)))
+
+      setAttendees([])
+      setFilteredAttendees([])
+      setSelectedIds([])
+      setSelectedSeatsForPath([])
+      setSelectedAttendeeIsVip(null)
+      setCurrentPage(1)
+    } catch (error) {
+      console.error("[v0] Error deleting all attendees:", error)
+      alert("Failed to delete all attendees")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 🔥 NEW: delete only selected delegates
+  const handleDeleteSelected = async () => {
+    if (!selectedIds.length) return
+
+    const confirmed = confirm(
+      "Are you sure you want to delete these selected delegates from the list?",
+    )
+    if (!confirmed) return
+
+    try {
+      setIsLoading(true)
+      await Promise.all(selectedIds.map((id) => deleteAttendee(id)))
+
+      const updated = attendees.filter(
+        (att) => !att.id || !selectedIds.includes(att.id),
+      )
+      setAttendees(updated)
+
+      const filtered = filterAttendees(updated, {
+        search: searchQuery,
+        exactMatch,
+      })
+
+      // re-sync path selection after bulk delete
+      syncPathSelection(filtered, searchQuery, exactMatch)
+
+      setSelectedIds([])
+      setCurrentPage(1)
+    } catch (error) {
+      console.error("[v0] Error deleting selected attendees:", error)
+      alert("Failed to delete selected attendees")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const totalPages = Math.ceil(filteredAttendees.length / ITEMS_PER_PAGE) || 1
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
@@ -261,6 +362,13 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(1, prev - 1))
   const handleNextPage = () => setCurrentPage((prev) => Math.min(totalPages, prev + 1))
   const handleLastPage = () => setCurrentPage(totalPages)
+
+  // computed select-all checkbox state for current page
+  const allOnPageSelected =
+    paginatedAttendees.length > 0 &&
+    paginatedAttendees.every(
+      (a) => a.id && selectedIds.includes(a.id),
+    )
 
   if (isLoading) {
     return (
@@ -273,7 +381,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
   return (
     <div className="space-y-6">
       {/* Top actions */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <Button onClick={() => setShowCSVImport(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
           <Upload className="w-4 h-4" />
           Import CSV
@@ -289,6 +397,29 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         >
           <Download className="w-4 h-4" />
           Export Data
+        </Button>
+
+        {/* Spacer to push destructive actions to the right on large screens */}
+        <div className="flex-1" />
+
+        {/* NEW: bulk delete buttons */}
+        <Button
+          onClick={handleDeleteSelected}
+          variant="destructive"
+          className="gap-2"
+          disabled={selectedIds.length === 0}
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Selected
+        </Button>
+        <Button
+          onClick={handleDeleteAll}
+          variant="destructive"
+          className="gap-2"
+          disabled={attendees.length === 0}
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete All
         </Button>
       </div>
 
@@ -344,6 +475,15 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                {/* NEW: checkbox column */}
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-400"
+                    checked={allOnPageSelected}
+                    onChange={(e) => handleSelectAllOnPage(e.target.checked, paginatedAttendees)}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Ticket</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Check-in Time</th>
@@ -355,13 +495,23 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
             <tbody>
               {paginatedAttendees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-600">
+                  {/* updated colSpan from 6 -> 7 because of new checkbox column */}
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-600">
                     No attendees found
                   </td>
                 </tr>
               ) : (
                 paginatedAttendees.map((attendee) => (
                   <tr key={attendee.id} className="border-b border-slate-200 hover:bg-slate-50">
+                    {/* per-row selection checkbox */}
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-400"
+                        checked={!!attendee.id && selectedIds.includes(attendee.id)}
+                        onChange={() => attendee.id && toggleSelectAttendee(attendee.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-900 font-medium">{attendee.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{attendee.ticketNumber}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
@@ -389,7 +539,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(attendee.id!)}
+                          onClick={() => attendee.id && handleDelete(attendee.id)}
                           className="text-red-600 hover:text-red-700 p-1"
                           title="Delete"
                         >
@@ -407,7 +557,7 @@ export function AdminAttendeesList({ adminEmail = "" }: AdminAttendeesListProps)
         {/* Pagination */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, filteredAttendees.length)} of{" "}
+            Showing {filteredAttendees.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredAttendees.length)} of{" "}
             {filteredAttendees.length} delegates
           </div>
           {totalPages > 1 && (
