@@ -188,22 +188,16 @@ export default function CheckinPage() {
     }
   };
 
-  // seats from all matched attendees
-  const seatIds: number[] = Array.from(
-    new Set(
-      searchResults
-        .map((att) => att.assignedSeat)
-        .filter(
-          (seat: any): seat is number =>
-            typeof seat === "number" && !Number.isNaN(seat),
-        ),
-    ),
-  );
+  // seat from the currently selected attendee ONLY
+  const seatIds: number[] =
+    selectedAttendee &&
+    typeof selectedAttendee.assignedSeat === "number" &&
+    !Number.isNaN(selectedAttendee.assignedSeat)
+      ? [selectedAttendee.assignedSeat]
+      : [];
 
   const isVipForVisualization =
-    seatIds.length === 1 && selectedAttendee
-      ? selectedAttendee.category === "VIP"
-      : undefined;
+    selectedAttendee ? selectedAttendee.category === "VIP" : undefined;
 
   // text helpers
   const seatsLabel =
@@ -253,7 +247,7 @@ export default function CheckinPage() {
 
         {/* Error banner */}
         {error && (
-          <Card className="bg-destructive/10 border border-destructive/40 p-3 md:p-4 animate-slide-up">
+          <Card className="bg-destructive/10 border border-destructive/40 p-3 md:4 animate-slide-up">
             <p className="text-destructive text-xs md:text-sm">{error}</p>
           </Card>
         )}
@@ -283,7 +277,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Single map card with attendee info in its own header */}
+        {/* Map card with attendee info in its own header */}
         {seatIds.length > 0 && (
           <PathfindingVisualization
             seatIds={seatIds}
@@ -298,7 +292,7 @@ export default function CheckinPage() {
                 ? handleCheckin
                 : undefined
             }
-            autoZoomOnSeatChange
+            autoFullscreenOnSeatChange
           />
         )}
       </main>
