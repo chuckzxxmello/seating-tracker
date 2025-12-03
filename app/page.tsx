@@ -149,7 +149,10 @@ export default function CheckinPage() {
 
     if (selectedAttendee.assignedSeat) {
       try {
-        const isVIP = selectedAttendee.category === "VIP";
+        const isVIP =
+          typeof selectedAttendee.category === "string" &&
+          selectedAttendee.category.trim().toUpperCase() === "VIP";
+
         const capacity = await checkTableCapacity(
           selectedAttendee.assignedSeat,
           isVIP,
@@ -197,24 +200,9 @@ export default function CheckinPage() {
       : [];
 
   const isVipForVisualization =
-    selectedAttendee ? selectedAttendee.category === "VIP" : undefined;
-
-  // text helpers
-  const seatsLabel =
-    seatIds.length === 0
-      ? ""
-      : seatIds.length === 1
-      ? `Seat ${seatIds[0]}`
-      : `Seat ${seatIds.join(", ")}`;
-
-  const seatSentence =
-    seatIds.length === 0
-      ? "Your seat is not yet assigned."
-      : seatIds.length === 1
-      ? `Your assigned seat is Seat ${seatIds[0]}. Look for the highlighted table on the map below.`
-      : `Your assigned seats are Seats ${seatIds.join(
-          ", ",
-        )}. Look for the highlighted tables on the map below.`;
+    selectedAttendee && typeof selectedAttendee.category === "string"
+      ? selectedAttendee.category.trim().toUpperCase() === "VIP"
+      : undefined;
 
   return (
     <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
@@ -283,8 +271,6 @@ export default function CheckinPage() {
             seatIds={seatIds}
             isVip={isVipForVisualization}
             attendeeName={selectedAttendee?.name ?? undefined}
-            seatSummaryLabel={seatsLabel}
-            seatSentence={seatSentence}
             isCheckedIn={!!selectedAttendee?.checkedIn}
             isCheckInLoading={isCheckingIn}
             onCheckIn={
