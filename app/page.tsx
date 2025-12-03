@@ -226,7 +226,7 @@ export default function CheckinPage() {
 
         if (capacity.isFull) {
           setError(
-            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`,
+            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} tables). Cannot check in.`,
           );
           return;
         }
@@ -303,8 +303,8 @@ export default function CheckinPage() {
         seatIds[0]
       }. Look for the highlighted table on the map below.`;
     } else {
-      seatSummaryLabel = `Seats ${seatIds.join(", ")}`;
-      seatSentence = `Your assigned seats are Tables ${seatIds.join(
+      seatSummaryLabel = `Tables ${seatIds.join(", ")}`;
+      seatSentence = `Your assigned tables are ${seatIds.join(
         ", ",
       )}. Look for the highlighted tables on the map below.`;
     }
