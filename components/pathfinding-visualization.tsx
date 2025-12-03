@@ -756,37 +756,54 @@ export function PathfindingVisualization({
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-          {onCheckIn && !isCheckedIn && (
-            <Button
-              onClick={onCheckIn}
-              disabled={isCheckInLoading}
-              className="h-9 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
-            >
-              <CheckCircle2 className="w-4 h-4 mr-1.5" />
-              {isCheckInLoading ? "Processing..." : "Mark as Checked In"}
+
+        {/* Zoom buttons beside Check-In (embedded mode only) */}
+        {!isFull && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handleZoomOut}>
+              <ZoomOut className="w-4 h-4" />
             </Button>
-          )}
-
-          {isCheckedIn && (
-            <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
-              <CheckCircle2 className="w-4 h-4" />
-              <span className="text-xs md:text-sm">Checked In</span>
-            </div>
-          )}
-
+            <Button variant="outline" size="icon" onClick={handleResetView}>
+              1:1
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleZoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      
+        {onCheckIn && !isCheckedIn && (
           <Button
-            variant="ghost"
-            size={isFull ? "sm" : "icon"}
-            onClick={toggleFullscreen}
-            className={isFull ? "ml-1" : ""}
+            onClick={onCheckIn}
+            disabled={isCheckInLoading}
+            className="h-9 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
           >
-            {isFull ? (
-              <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
-            ) : (
-              <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
-            )}
+            <CheckCircle2 className="w-4 h-4 mr-1.5" />
+            {isCheckInLoading ? "Processing..." : "Mark as Checked In"}
           </Button>
-        </div>
+        )}
+      
+        {isCheckedIn && (
+          <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-xs md:text-sm">Checked In</span>
+          </div>
+        )}
+      
+        <Button
+          variant="ghost"
+          size={isFull ? "sm" : "icon"}
+          onClick={toggleFullscreen}
+          className={isFull ? "ml-1" : ""}
+        >
+          {isFull ? (
+            <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
+          ) : (
+            <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+          )}
+        </Button>
+      </div>
+
       </div>
     );
   };
