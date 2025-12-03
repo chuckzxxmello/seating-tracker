@@ -58,9 +58,7 @@ export function PathfindingVisualization({
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
   // pointer / gesture state
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(
-    new Map(),
-  );
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDistanceRef = useRef<number | null>(null);
 
   const dragPointerIdRef = useRef<number | null>(null);
@@ -168,6 +166,7 @@ export function PathfindingVisualization({
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
   // ---------- auto fullscreen on seat change ----------
+  // When seat changes (homepage search), just open fullscreen at 1:1 / centered map.
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
@@ -175,9 +174,9 @@ export function PathfindingVisualization({
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
       setIsFullscreen(true);
-      setZoom(2);
+      setZoom(1);
       setPan({ x: 0, y: 0 });
-      shouldAutoCenterRef.current = true;
+      shouldAutoCenterRef.current = false;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
@@ -221,19 +220,16 @@ export function PathfindingVisualization({
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
 
-  // 1:1 should ALWAYS reset to default view (whole map centered)
+  // 1:1 should ALWAYS reset to default full-map view
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
-    // do NOT auto-center on seat when resetting;
-    // this keeps the original, fully visible layout.
     shouldAutoCenterRef.current = false;
   };
 
-    const toggleFullscreen = () => {
+  // Maximize/minimize should NEVER change zoom/pan.
+  const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
-    // When user toggles fullscreen manually, we keep the current zoom/pan.
-    // 1:1 button still resets to the default full-map view.
     shouldAutoCenterRef.current = false;
   };
 
@@ -624,7 +620,9 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // ---------- auto-center selected seat (ONLY when fullscreen + flag set) ----------
+  // ---------- (optional) auto-center effect ----------
+  // Currently disabled because we never set shouldAutoCenterRef=true,
+  // but kept for future use if you want "focus on seat" behavior again.
   useEffect(() => {
     if (
       !isFullscreen ||
@@ -692,18 +690,10 @@ export function PathfindingVisualization({
       y: centerY - seatCanvasY * zoom,
     });
 
-    // only once
     shouldAutoCenterRef.current = false;
-  }, [
-    isFullscreen,
-    zoom,
-    hasSelectedSeats,
-    venueNodes,
-    seatIdSet,
-    mode,
-  ]);
+  }, [isFullscreen, zoom, hasSelectedSeats, venueNodes, seatIdSet, mode]);
 
-  // ---------- header bits ----------
+  // ---------- header text (VIP-aware) ----------
   const hasAttendeeInfo = !!attendeeName;
 
   const fallbackSeatLabel =
@@ -729,11 +719,7 @@ export function PathfindingVisualization({
   const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
   const headerSeatSentence = seatSentence || fallbackSeatSentence;
 
-  const HeaderContent = ({
-    variant,
-  }: {
-    variant: "embedded" | "fullscreen";
-  }) => {
+  const HeaderContent = ({ variant }: { variant: "embedded" | "fullscreen" }) => {
     const isFull = variant === "fullscreen";
 
     return (
