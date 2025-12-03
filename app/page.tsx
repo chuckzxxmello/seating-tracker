@@ -19,11 +19,11 @@ import { useAuth } from "@/lib/auth-context";
 export default function CheckinPage() {
   const { user } = useAuth();
 
-  // 🔹 All attendees (loaded once)
+  // all attendees
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [hasLoadedAttendees, setHasLoadedAttendees] = useState(false);
 
-  // 🔹 Search state
+  // search state
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<Attendee[]>([]);
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(
@@ -34,7 +34,7 @@ export default function CheckinPage() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Background music (low volume, starts after first click)
+  // background music
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -43,9 +43,7 @@ export default function CheckinPage() {
     const handleFirstInteraction = () => {
       if (audioRef.current) {
         audioRef.current.volume = 0.15;
-        audioRef.current.play().catch(() => {
-          // ignore autoplay errors
-        });
+        audioRef.current.play().catch(() => {});
       }
       window.removeEventListener("click", handleFirstInteraction);
     };
@@ -54,7 +52,7 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
-  // 🔹 Load attendees once
+  // load attendees once
   const loadAttendees = async () => {
     try {
       const data = await getAttendees();
@@ -71,7 +69,7 @@ export default function CheckinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Normalization helper
+  // helpers for search
   const normalize = (value: string | null | undefined): string =>
     (value ?? "")
       .toString()
@@ -86,11 +84,13 @@ export default function CheckinPage() {
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
 
+    // full phrase
     const fullQuery = normalize(tokens.join(" "));
     if (fullQuery && (name.includes(fullQuery) || ticket.includes(fullQuery))) {
       return true;
     }
 
+    // per-token
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
@@ -110,7 +110,6 @@ export default function CheckinPage() {
       .filter(Boolean);
 
     if (tokens.length === 0) return [];
-
     return attendees.filter((att) => matchesSearch(att, tokens));
   };
 
@@ -131,7 +130,7 @@ export default function CheckinPage() {
 
       if (results.length > 0) {
         setSearchResults(results);
-        setSelectedAttendee(results[0]); // this will drive the map + fullscreen
+        setSelectedAttendee(results[0]); // drives the map
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again.",
@@ -189,7 +188,7 @@ export default function CheckinPage() {
     }
   };
 
-  // 🔹 collect ALL seat numbers from matches
+  // collect all seat numbers from results
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
@@ -206,7 +205,7 @@ export default function CheckinPage() {
       ? selectedAttendee.category === "VIP"
       : undefined;
 
-  // Text helpers for seats
+  // copy text
   const seatsLabel =
     seatIds.length === 0
       ? ""
@@ -225,10 +224,10 @@ export default function CheckinPage() {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
-      {/* subtle star / twinkle overlay */}
+      {/* twinkle bg */}
       <div className="twinkle-layer" aria-hidden="true" />
 
-      {/* background music */}
+      {/* bgm */}
       <audio
         ref={audioRef}
         src="/audio/legacy-night-bgm.mp3"
@@ -236,9 +235,10 @@ export default function CheckinPage() {
         preload="auto"
       />
 
-      <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm"></header>
+      <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-14 space-y-8 md:space-y-10">
+      {/* NOTE: no bottom padding so the map sits flush with viewport bottom */}
+      <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 pt-10 md:pt-14 pb-0 space-y-8 md:space-y-10">
         {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
           <Image
@@ -258,7 +258,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – hidden AFTER a match is selected */}
+        {/* Search card – hidden after a match is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -283,13 +283,12 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Map with multi-seat highlight + attendee info inside */}
+        {/* Map with multi-seat highlight & attendee info inside the header */}
         {seatIds.length > 0 && (
           <PathfindingVisualization
             seatIds={seatIds}
             isVip={isVipForVisualization}
             showBackground={false}
-            // new props for header content
             attendeeName={selectedAttendee?.name ?? undefined}
             seatSummaryLabel={seatsLabel}
             seatSentence={seatSentence}
@@ -300,7 +299,6 @@ export default function CheckinPage() {
                 ? handleCheckin
                 : undefined
             }
-            // auto-open fullscreen + zoom when a seat is found
             autoFullscreenOnSeatChange
           />
         )}
