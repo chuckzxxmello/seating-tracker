@@ -221,17 +221,14 @@ export function PathfindingVisualization({
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
 
+  // 1:1 should ALWAYS reset to default view (whole map centered)
   const handleResetView = () => {
-  setZoom(1);
-  setPan({ x: 0, y: 0 });
-
-  // After resetting, auto-center around the selected seat/table
-  if (hasSelectedSeats) {
-    shouldAutoCenterRef.current = true;
-  } else {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    // do NOT auto-center on seat when resetting;
+    // this keeps the original, fully visible layout.
     shouldAutoCenterRef.current = false;
-  }
-};
+  };
 
   const toggleFullscreen = () => {
     const wasFullscreen = isFullscreen;
@@ -247,6 +244,7 @@ export function PathfindingVisualization({
     } else {
       // leaving fullscreen
       shouldAutoCenterRef.current = false;
+      // when we exit, keep current zoom/pan; 1:1 button can reset if needed
     }
   };
 
@@ -637,87 +635,95 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // ---------- auto-center selected seat (when flag is set) ----------
-useEffect(() => {
-  if (
-    !shouldAutoCenterRef.current ||
-    !hasSelectedSeats ||
-    venueNodes.length === 0
-  ) {
-    return;
-  }
+  // ---------- auto-center selected seat (ONLY when fullscreen + flag set) ----------
+  useEffect(() => {
+    if (
+      !isFullscreen ||
+      !shouldAutoCenterRef.current ||
+      !hasSelectedSeats ||
+      venueNodes.length === 0
+    ) {
+      return;
+    }
 
-  const canvas = canvasRef.current;
-  if (!canvas) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const parent = canvas.parentElement as HTMLElement | null;
-  const cssWidth = parent?.clientWidth ?? 1400;
-  const cssHeight = parent?.clientHeight ?? 800;
+    const parent = canvas.parentElement as HTMLElement | null;
+    const cssWidth = parent?.clientWidth ?? 1400;
+    const cssHeight = parent?.clientHeight ?? 800;
 
-  const allX = venueNodes.map((n) => n.x);
-  const allY = venueNodes.map((n) => n.y);
-  const rawMinX = Math.min(...allX);
-  const rawMaxX = Math.max(...allX);
-  const rawMinY = Math.min(...allY);
-  const rawMaxY = Math.max(...allY);
+    const allX = venueNodes.map((n) => n.x);
+    const allY = venueNodes.map((n) => n.y);
+    const rawMinX = Math.min(...allX);
+    const rawMaxX = Math.max(...allX);
+    const rawMinY = Math.min(...allY);
+    const rawMaxY = Math.max(...allY);
 
-  const margin = 40;
-  const minX = rawMinX - margin;
-  const maxX = rawMaxX + margin;
-  const minY = rawMinY - margin;
-  const maxY = rawMaxY + margin;
+    const margin = 40;
+    const minX = rawMinX - margin;
+    const maxX = rawMaxX + margin;
+    const minY = rawMinY - margin;
+    const maxY = rawMaxY + margin;
 
-  const contentWidth = maxX - minX;
-  const contentHeight = maxY - minY;
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
 
-  const scaleX = cssWidth / contentWidth;
-  const scaleY = cssHeight / contentHeight;
-  const contentScale = Math.min(scaleX, scaleY);
+    const scaleX = cssWidth / contentWidth;
+    const scaleY = cssHeight / contentHeight;
+    const contentScale = Math.min(scaleX, scaleY);
 
-  const viewWidthWorld = cssWidth / contentScale;
-  const viewHeightWorld = cssHeight / contentScale;
+    const viewWidthWorld = cssWidth / contentScale;
+    const viewHeightWorld = cssHeight / contentScale;
 
-  const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
-  const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
+    const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
+    const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
 
-  const centeredMinX = minX - offsetXWorld;
-  const centeredMinY = minY - offsetYWorld;
+    const centeredMinX = minX - offsetXWorld;
+    const centeredMinY = minY - offsetYWorld;
 
-  const target = venueNodes.find((node) => {
-    const tableNum = node.label.match(/\d+/)?.[0];
-    if (!tableNum || !seatIdSet.has(tableNum)) return false;
-    if (mode === "vip") return node.type === "vip-table";
-    if (mode === "regular") return node.type === "table";
-    return node.type === "table" || node.type === "vip-table";
-  });
+    const target = venueNodes.find((node) => {
+      const tableNum = node.label.match(/\d+/)?.[0];
+      if (!tableNum || !seatIdSet.has(tableNum)) return false;
+      if (mode === "vip") return node.type === "vip-table";
+      if (mode === "regular") return node.type === "table";
+      return node.type === "table" || node.type === "vip-table";
+    });
 
-  if (!target) return;
+    if (!target) return;
 
-  const seatCanvasX = (target.x - centeredMinX) * contentScale;
-  const seatCanvasY = (target.y - centeredMinY) * contentScale;
+    const seatCanvasX = (target.x - centeredMinX) * contentScale;
+    const seatCanvasY = (target.y - centeredMinY) * contentScale;
 
-  const centerX = cssWidth / 2;
-  const centerY = cssHeight / 2;
+    const centerX = cssWidth / 2;
+    const centerY = cssHeight / 2;
 
-  setPan({
-    x: centerX - seatCanvasX * zoom,
-    y: centerY - seatCanvasY * zoom,
-  });
+    setPan({
+      x: centerX - seatCanvasX * zoom,
+      y: centerY - seatCanvasY * zoom,
+    });
 
-  // only once per request
-  shouldAutoCenterRef.current = false;
-}, [zoom, hasSelectedSeats, venueNodes, seatIdSet, mode]);
+    // only once
+    shouldAutoCenterRef.current = false;
+  }, [
+    isFullscreen,
+    zoom,
+    hasSelectedSeats,
+    venueNodes,
+    seatIdSet,
+    mode,
+  ]);
 
   // ---------- header bits ----------
   const hasAttendeeInfo = !!attendeeName;
-  
+
   const fallbackSeatLabel =
     !hasSelectedSeats
       ? ""
       : selectedSeatIds.length === 1
       ? (isVipMode ? "VIP Table Number " : "Seat ") + selectedSeatIds[0]
       : (isVipMode ? "VIP Tables " : "Seats ") + selectedSeatIds.join(", ");
-  
+
   const fallbackSeatSentence =
     !hasSelectedSeats
       ? ""
@@ -730,10 +736,9 @@ useEffect(() => {
         : `Your assigned seats are Seats ${selectedSeatIds.join(
             ", ",
           )}. Look for the highlighted tables on the map below.`;
-  
+
   const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
   const headerSeatSentence = seatSentence || fallbackSeatSentence;
-
 
   const HeaderContent = ({
     variant,
@@ -761,7 +766,7 @@ useEffect(() => {
             </p>
           )}
 
-          {seatSentence && (
+          {headerSeatSentence && (
             <p className="text-[11px] md:text-xs bg-muted/80 text-muted-foreground p-2 rounded-md leading-relaxed">
               {headerSeatSentence}
             </p>
@@ -769,54 +774,52 @@ useEffect(() => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-
-        {/* Zoom buttons beside Check-In (embedded mode only) */}
-        {!isFull && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handleZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleResetView}>
-              1:1
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-      
-        {onCheckIn && !isCheckedIn && (
-          <Button
-            onClick={onCheckIn}
-            disabled={isCheckInLoading}
-            className="h-9 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
-          >
-            <CheckCircle2 className="w-4 h-4 mr-1.5" />
-            {isCheckInLoading ? "Processing..." : "Mark as Checked In"}
-          </Button>
-        )}
-      
-        {isCheckedIn && (
-          <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="text-xs md:text-sm">Checked In</span>
-          </div>
-        )}
-      
-        <Button
-          variant="ghost"
-          size={isFull ? "sm" : "icon"}
-          onClick={toggleFullscreen}
-          className={isFull ? "ml-1" : ""}
-        >
-          {isFull ? (
-            <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
-          ) : (
-            <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+          {/* Zoom buttons beside Check-In (embedded mode only) */}
+          {!isFull && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={handleZoomOut}>
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleResetView}>
+                1:1
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleZoomIn}>
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+            </div>
           )}
-        </Button>
-      </div>
 
+          {onCheckIn && !isCheckedIn && (
+            <Button
+              onClick={onCheckIn}
+              disabled={isCheckInLoading}
+              className="h-9 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1.5" />
+              {isCheckInLoading ? "Processing..." : "Mark as Checked In"}
+            </Button>
+          )}
+
+          {isCheckedIn && (
+            <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs md:text-sm">Checked In</span>
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            size={isFull ? "sm" : "icon"}
+            onClick={toggleFullscreen}
+            className={isFull ? "ml-1" : ""}
+          >
+            {isFull ? (
+              <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
+            ) : (
+              <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+            )}
+          </Button>
+        </div>
       </div>
     );
   };
@@ -861,7 +864,7 @@ useEffect(() => {
     style: { touchAction: "none" as const },
   } as const;
 
-  // ---------- FULLSCREEN ONLY OR EMBEDDED ONLY ----------
+  // ---------- FULLSCREEN ONLY ----------
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 z-50 bg-background flex flex-col min-h-0">
