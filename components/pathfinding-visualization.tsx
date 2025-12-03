@@ -757,6 +757,21 @@ export function PathfindingVisualization({
 
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
 
+        {/* Zoom buttons beside Check-In (embedded mode only) */}
+        {!isFull && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handleZoomOut}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleResetView}>
+              1:1
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleZoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      
         {onCheckIn && !isCheckedIn && (
           <Button
             onClick={onCheckIn}
@@ -772,21 +787,6 @@ export function PathfindingVisualization({
           <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
             <CheckCircle2 className="w-4 h-4" />
             <span className="text-xs md:text-sm">Checked In</span>
-          </div>
-        )}
-      
-        {/* Zoom buttons should appear AFTER Check-In */}
-        {!isFull && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handleZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleResetView}>
-              1:1
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
           </div>
         )}
       
