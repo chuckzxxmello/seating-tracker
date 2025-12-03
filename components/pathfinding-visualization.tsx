@@ -410,7 +410,7 @@ export function PathfindingVisualization({
     if (!ctx) return;
 
     const allX = venueNodes.map((n) => n.x);
-    the const allY = venueNodes.map((n) => n.y);
+    const allY = venueNodes.map((n) => n.y);
     const rawMinX = Math.min(...allX);
     const rawMaxX = Math.max(...allX);
     const rawMinY = Math.min(...allY);
