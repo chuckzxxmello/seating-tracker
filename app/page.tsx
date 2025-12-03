@@ -34,6 +34,12 @@ export default function CheckinPage() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // 🔥 NEW: multi-seat highlight state
+  const [highlightSeats, setHighlightSeats] = useState<number[]>([]);
+  const [highlightVipMode, setHighlightVipMode] = useState<boolean | null>(
+    null,
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -65,7 +71,7 @@ export default function CheckinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- search helpers ----------
+  // ---------- helpers ----------
   const normalize = (value: string | null | undefined): string =>
     (value ?? "")
       .toString()
@@ -74,26 +80,54 @@ export default function CheckinPage() {
       .trim()
       .toLowerCase();
 
+  // 🔢 Helper: get seat value like in admin (supports assignedSeat / seat)
+  const getSeatValue = (att: Attendee): number | undefined => {
+    const anyAtt = att as any;
+    const val =
+      typeof anyAtt.assignedSeat === "number"
+        ? anyAtt.assignedSeat
+        : typeof anyAtt.seat === "number"
+        ? anyAtt.seat
+        : undefined;
+
+    if (typeof val === "number" && !Number.isNaN(val)) return val;
+    return undefined;
+  };
+
+  // 🔍 Matching logic including category / team (PMT, Team Eunice, etc.)
   const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
     if (tokens.length === 0) return true;
 
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
+    const category = normalize((att as any).category);
 
+    // Full query phrase check first (so "Team Eunice" works nicely)
     const fullQuery = normalize(tokens.join(" "));
-    if (fullQuery && (name.includes(fullQuery) || ticket.includes(fullQuery))) {
+    if (
+      fullQuery &&
+      (name.includes(fullQuery) ||
+        ticket.includes(fullQuery) ||
+        category.includes(fullQuery))
+    ) {
       return true;
     }
 
+    // Then token-by-token
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
 
+      // very short tokens (<=2) only checked against ticket (like your admin logic)
       if (token.length <= 2 && /\d/.test(token)) {
         return ticket.includes(token);
       }
 
-      return name.includes(token) || ticket.includes(token);
+      return (
+        name.includes(token) ||
+        ticket.includes(token) ||
+        category.includes(token)
+      );
     });
   };
 
@@ -114,6 +148,8 @@ export default function CheckinPage() {
     setError(null);
     setSelectedAttendee(null);
     setSearchResults([]);
+    setHighlightSeats([]);
+    setHighlightVipMode(null);
 
     try {
       if (!hasLoadedAttendees) {
@@ -125,9 +161,38 @@ export default function CheckinPage() {
       if (results.length > 0) {
         setSearchResults(results);
         setSelectedAttendee(results[0]);
+
+        // 🔥 NEW: compute all seats for this search term
+        const seats = results
+          .map((att) => getSeatValue(att))
+          .filter(
+            (seat): seat is number =>
+              typeof seat === "number" && !Number.isNaN(seat),
+          );
+        const uniqueSeats = Array.from(new Set(seats));
+        setHighlightSeats(uniqueSeats);
+
+        // Determine VIP mode:
+        // - if exactly 1 match and it has a seat -> VIP or regular depending on category
+        // - if multiple matches -> admin mode (highlight both VIP and regular)
+        if (results.length === 1) {
+          const only = results[0];
+          const seatVal = getSeatValue(only);
+          if (typeof seatVal === "number") {
+            const categoryRaw = normalize((only as any).category);
+            setHighlightVipMode(
+              categoryRaw === "vip" ? true : categoryRaw ? false : null,
+            );
+          } else {
+            setHighlightVipMode(null);
+          }
+        } else {
+          // multiple attendees -> admin mode (no VIP filter)
+          setHighlightVipMode(null);
+        }
       } else {
         setError(
-          "No attendee found with that ticket number or name. Please check the spelling and try again.",
+          "No attendee found with that ticket number, name, or category. Please check the spelling and try again.",
         );
       }
     } catch (err) {
@@ -182,16 +247,29 @@ export default function CheckinPage() {
     }
   };
 
-  // seat from the currently selected attendee ONLY
+  // ---------- seat IDs for visualization ----------
+
+  // Prefer multi-seat highlight from search (PMT / Team Eunice, etc.)
   const seatIds: number[] =
-    selectedAttendee &&
-    typeof selectedAttendee.assignedSeat === "number" &&
-    !Number.isNaN(selectedAttendee.assignedSeat)
+    highlightSeats.length > 0
+      ? highlightSeats
+      : selectedAttendee &&
+        typeof selectedAttendee.assignedSeat === "number" &&
+        !Number.isNaN(selectedAttendee.assignedSeat)
       ? [selectedAttendee.assignedSeat]
       : [];
 
+  // VIP awareness:
+  // - multi-seat highlight: VIP mode only when exactly 1 and we know it's VIP
+  // - single attendee: use that attendee's category
   const isVipForVisualization =
-    selectedAttendee ? selectedAttendee.category === "VIP" : undefined;
+    highlightSeats.length > 0
+      ? highlightSeats.length === 1
+        ? highlightVipMode === true
+        : undefined // admin mode, allow both VIP + regular
+      : selectedAttendee
+      ? selectedAttendee.category === "VIP"
+      : undefined;
 
   // --------- label helpers (VIP-aware) ----------
   let seatSummaryLabel: string | undefined;
@@ -257,7 +335,7 @@ export default function CheckinPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 <Input
-                  placeholder="Enter name..."
+                  placeholder="Enter name, ticket, or team..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
