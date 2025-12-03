@@ -536,25 +536,36 @@ export function PathfindingVisualization({
         ctx.fillText("PHOTO", pos.x, pos.y);
       } else if (node.type === "edge-node") {
         return;
-      } else if (
-        node.type === "custom" ||
-        node.type === "waypoint" ||
-        node.type === "intersection"
-      ) {
+      } else if (node.type === "custom") {
+        // Render custom nodes as a DESSERT TABLE (rectangle, like buffet)
+        const width = 30 * contentScale;
+        const height = 60 * contentScale;
+      
+        // Same dark color as buffet (you can tweak this)
+        ctx.fillStyle = "#1F2937";
+        ctx.fillRect(
+          pos.x - width / 2,
+          pos.y - height / 2,
+          width,
+          height,
+        );
+      
+        // Vertical "DESSERT TABLE" label
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(-Math.PI / 2); // rotate text
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `${Math.max(8, 10 * contentScale)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("DESSERT TABLE", 0, 0);
+        ctx.restore();
+      } else if (node.type === "waypoint" || node.type === "intersection") {
+        // Keep waypoints / intersections as small dots
         ctx.fillStyle = "#8B5CF6";
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, 8 * contentScale, 0, Math.PI * 2);
         ctx.fill();
-        if (node.label && node.type === "custom") {
-          ctx.fillStyle = "#E5E7EB";
-          ctx.font = `${Math.max(7, 8 * contentScale)}px sans-serif`;
-          ctx.textAlign = "center";
-          ctx.fillText(
-            node.label.substring(0, 8),
-            pos.x,
-            pos.y + 15 * contentScale,
-          );
-        }
       } else if (node.type === "entrance") {
         ctx.fillStyle = highlight ? "#FBBF24" : "#10B981";
         ctx.beginPath();
