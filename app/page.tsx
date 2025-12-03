@@ -19,11 +19,9 @@ import { useAuth } from "@/lib/auth-context";
 export default function CheckinPage() {
   const { user } = useAuth();
 
-  // all attendees
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [hasLoadedAttendees, setHasLoadedAttendees] = useState(false);
 
-  // search + selection
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<Attendee[]>([]);
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(
@@ -34,7 +32,6 @@ export default function CheckinPage() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // background music
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -52,7 +49,6 @@ export default function CheckinPage() {
     return () => window.removeEventListener("click", handleFirstInteraction);
   }, []);
 
-  // load attendees once
   const loadAttendees = async () => {
     try {
       const data = await getAttendees();
@@ -84,13 +80,11 @@ export default function CheckinPage() {
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
 
-    // full phrase
     const fullQuery = normalize(tokens.join(" "));
     if (fullQuery && (name.includes(fullQuery) || ticket.includes(fullQuery))) {
       return true;
     }
 
-    // per-token
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
@@ -149,10 +143,7 @@ export default function CheckinPage() {
 
     if (selectedAttendee.assignedSeat) {
       try {
-        const isVIP =
-          typeof selectedAttendee.category === "string" &&
-          selectedAttendee.category.trim().toUpperCase() === "VIP";
-
+        const isVIP = selectedAttendee.category === "VIP";
         const capacity = await checkTableCapacity(
           selectedAttendee.assignedSeat,
           isVIP,
@@ -200,16 +191,39 @@ export default function CheckinPage() {
       : [];
 
   const isVipForVisualization =
-    selectedAttendee && typeof selectedAttendee.category === "string"
-      ? selectedAttendee.category.trim().toUpperCase() === "VIP"
-      : undefined;
+    selectedAttendee ? selectedAttendee.category === "VIP" : undefined;
+
+  // --------- label helpers (VIP-aware) ----------
+  let seatSummaryLabel: string | undefined;
+  let seatSentence: string | undefined;
+
+  if (seatIds.length > 0) {
+    if (isVipForVisualization && seatIds.length === 1) {
+      // VIP single table
+      seatSummaryLabel = `VIP Table Number ${seatIds[0]}`;
+      seatSentence = `Your assigned seat is on VIP Table ${seatIds[0]}`;
+    } else if (isVipForVisualization && seatIds.length > 1) {
+      seatSummaryLabel = `VIP Tables ${seatIds.join(", ")}`;
+      seatSentence = `Your assigned seats are on VIP Tables ${seatIds.join(
+        ", ",
+      )}`;
+    } else if (seatIds.length === 1) {
+      seatSummaryLabel = `Seat ${seatIds[0]}`;
+      seatSentence = `Your assigned seat is Seat ${
+        seatIds[0]
+      }. Look for the highlighted table on the map below.`;
+    } else {
+      seatSummaryLabel = `Seats ${seatIds.join(", ")}`;
+      seatSentence = `Your assigned seats are Seats ${seatIds.join(
+        ", ",
+      )}. Look for the highlighted tables on the map below.`;
+    }
+  }
 
   return (
     <div className="relative min-h-screen bg-background text-foreground animate-page-fade">
-      {/* twinkle bg */}
       <div className="twinkle-layer" aria-hidden="true" />
 
-      {/* bgm */}
       <audio
         ref={audioRef}
         src="/audio/legacy-night-bgm.mp3"
@@ -219,9 +233,7 @@ export default function CheckinPage() {
 
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
 
-      {/* NOTE: pb-0 so there's no empty strip at the bottom */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 pt-10 md:pt-14 pb-0 space-y-8 md:space-y-10">
-        {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
           <Image
             src="/images/home-mark.png"
@@ -233,14 +245,12 @@ export default function CheckinPage() {
           />
         </div>
 
-        {/* Error banner */}
         {error && (
           <Card className="bg-destructive/10 border border-destructive/40 p-3 md:4 animate-slide-up">
             <p className="text-destructive text-xs md:text-sm">{error}</p>
           </Card>
         )}
 
-        {/* Search card – hidden AFTER a match is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -265,12 +275,13 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Map card with attendee info in its own header */}
         {seatIds.length > 0 && (
           <PathfindingVisualization
             seatIds={seatIds}
             isVip={isVipForVisualization}
             attendeeName={selectedAttendee?.name ?? undefined}
+            seatSummaryLabel={seatSummaryLabel}
+            seatSentence={seatSentence}
             isCheckedIn={!!selectedAttendee?.checkedIn}
             isCheckInLoading={isCheckingIn}
             onCheckIn={
