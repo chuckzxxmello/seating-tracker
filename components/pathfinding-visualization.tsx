@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 interface PathfindingVisualizationProps {
-  /** Single seat (existing usage) */
+  /** Single seat (old usage) */
   seatId?: number | null;
 
   /** Highlight multiple table numbers */
@@ -26,13 +26,13 @@ interface PathfindingVisualizationProps {
 
   /**
    * isVip:
-   *  - true  → attendee is VIP → only VIP table(s) for these seatId(s)
-   *  - false → attendee is regular → only regular table(s) for these seatId(s)
-   *  - undefined → ADMIN MODE → both VIP and regular tables for these seatId(s)
+   *  - true  → VIP mode → only VIP tables
+   *  - false → regular mode → only regular tables
+   *  - undefined → admin mode → both
    */
   isVip?: boolean;
 
-  /** New – info bar content */
+  /** Header content (attendee info) */
   attendeeName?: string;
   seatSummaryLabel?: string;
   seatSentence?: string;
@@ -40,7 +40,7 @@ interface PathfindingVisualizationProps {
   isCheckInLoading?: boolean;
   onCheckIn?: () => void;
 
-  /** New – when seats change from none → something, open fullscreen + zoom */
+  /** When seat changes → auto open fullscreen zoomed */
   autoFullscreenOnSeatChange?: boolean;
 }
 
@@ -49,7 +49,7 @@ export function PathfindingVisualization({
   seatIds,
   imageSrc,
   showBackground = false,
-  isVip, // undefined = admin
+  isVip,
   attendeeName,
   seatSummaryLabel,
   seatSentence,
@@ -70,21 +70,19 @@ export function PathfindingVisualization({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
-  // pointer / gesture state (mouse + touch)
+  // pointer / gesture state
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(
     new Map(),
   );
   const lastPinchDistanceRef = useRef<number | null>(null);
 
-  // dragging
   const dragPointerIdRef = useRef<number | null>(null);
   const lastDragPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // double-tap / double-click
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // tracks previous seat selection for auto-fullscreen
+  // track previous seat selection for auto fullscreen
   const prevSeatKeyRef = useRef<string>("");
 
   // tuning
@@ -93,21 +91,15 @@ export function PathfindingVisualization({
   const WHEEL_ZOOM_OUT = 0.92;
   const DOUBLE_TAP_ZOOM = 1.15;
 
-  // ---------------------------------------------------------------------------
-  // Mode helpers
-  // ---------------------------------------------------------------------------
+  // mode
   type Mode = "vip" | "regular" | "admin";
-
   const mode: Mode =
     isVip === true ? "vip" : isVip === false ? "regular" : "admin";
 
   const isVipMode = mode === "vip";
   const isRegularMode = mode === "regular";
-  const isAdminMode = mode === "admin";
 
-  // ---------------------------------------------------------------------------
-  // Normalize selected seat IDs (single + multiple)
-  // ---------------------------------------------------------------------------
+  // normalize seats
   const selectedSeatIds: number[] = (() => {
     if (Array.isArray(seatIds) && seatIds.length > 0) {
       const clean = seatIds
@@ -115,11 +107,9 @@ export function PathfindingVisualization({
         .map((s) => Math.trunc(s));
       return Array.from(new Set(clean));
     }
-
     if (typeof seatId === "number" && !Number.isNaN(seatId)) {
       return [Math.trunc(seatId)];
     }
-
     return [];
   })();
 
@@ -127,9 +117,7 @@ export function PathfindingVisualization({
   const hasSelectedSeats = selectedSeatIds.length > 0;
   const seatKey = selectedSeatIds.join(",");
 
-  // ---------------------------------------------------------------------------
-  // Load venue nodes
-  // ---------------------------------------------------------------------------
+  // load venue map
   useEffect(() => {
     async function loadVenueData() {
       try {
@@ -150,9 +138,7 @@ export function PathfindingVisualization({
     loadVenueData();
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Validate the requested seat(s) exist (VIP/regular/admin aware)
-  // ---------------------------------------------------------------------------
+  // validate seat(s) against nodes
   useEffect(() => {
     if (!hasSelectedSeats || venueNodes.length === 0) return;
 
@@ -193,9 +179,7 @@ export function PathfindingVisualization({
     }
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
-  // ---------------------------------------------------------------------------
-  // Auto fullscreen + zoom when a new seat selection comes in
-  // ---------------------------------------------------------------------------
+  // auto fullscreen + zoom when seats change
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
@@ -203,14 +187,12 @@ export function PathfindingVisualization({
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
       setIsFullscreen(true);
-      setZoom(2); // zoomed-in view
-      setPan({ x: 0, y: 0 }); // centered; tables already roughly centered
+      setZoom(2); // zoomed in
+      setPan({ x: 0, y: 0 });
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
-  // ---------------------------------------------------------------------------
-  // Zoom / pan helpers
-  // ---------------------------------------------------------------------------
+  // zoom helpers
   const clampZoom = (z: number) => Math.min(4, Math.max(0.5, z));
 
   const zoomAtPoint = (factor: number, clientX: number, clientY: number) => {
@@ -258,15 +240,12 @@ export function PathfindingVisualization({
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
     if (!isFullscreen) {
-      // when entering fullscreen via button, start zoomed-in
       setZoom(2);
       setPan({ x: 0, y: 0 });
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Double-tap / double-click detection
-  // ---------------------------------------------------------------------------
+  // double tap
   const handleTouchDoubleTapCheck = (
     e: React.PointerEvent<HTMLCanvasElement>,
   ) => {
@@ -306,9 +285,7 @@ export function PathfindingVisualization({
     zoomAtPoint(DOUBLE_TAP_ZOOM, e.clientX, e.clientY);
   };
 
-  // ---------------------------------------------------------------------------
-  // Pointer handlers: drag + pinch
-  // ---------------------------------------------------------------------------
+  // pointer handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === "touch") {
       const used = handleTouchDoubleTapCheck(e);
@@ -398,9 +375,7 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  // ---------------------------------------------------------------------------
-  // Native wheel listener (zoom, no page scroll)
-  // ---------------------------------------------------------------------------
+  // native wheel
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -418,27 +393,17 @@ export function PathfindingVisualization({
     };
   }, [isFullscreen]);
 
-  // ---------------------------------------------------------------------------
-  // Seat highlighting logic
-  // ---------------------------------------------------------------------------
+  // seat highlighting
   const isSeatNodeSelected = (node: VenueNode) => {
     const tableNum = node.label.match(/\d+/)?.[0];
     if (!tableNum || !seatIdSet.has(tableNum)) return false;
 
-    if (mode === "vip") {
-      return node.type === "vip-table";
-    }
-    if (mode === "regular") {
-      return node.type === "table";
-    }
-
-    // admin mode
+    if (mode === "vip") return node.type === "vip-table";
+    if (mode === "regular") return node.type === "table";
     return node.type === "table" || node.type === "vip-table";
   };
 
-  // ---------------------------------------------------------------------------
-  // Drawing
-  // ---------------------------------------------------------------------------
+  // drawing
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || venueNodes.length === 0) return;
@@ -656,7 +621,6 @@ export function PathfindingVisualization({
         ctx.font = `bold ${Math.max(8, 10 * contentScale)}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
         const labelText = tableNum ? `VIP TABLE ${tableNum}` : "VIP TABLE";
         ctx.fillText(labelText, 0, 0);
         ctx.restore();
@@ -664,13 +628,10 @@ export function PathfindingVisualization({
     };
 
     venueNodes.forEach(drawNode);
-
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet]);
 
-  // ---------------------------------------------------------------------------
-  // UI helpers
-  // ---------------------------------------------------------------------------
+  // header helpers
   const hasAttendeeInfo = !!attendeeName;
 
   const fallbackSeatLabel =
@@ -698,15 +659,9 @@ export function PathfindingVisualization({
         }`}
       >
         <div className="space-y-1 flex-1 min-w-0">
-          {attendeeName ? (
-            <p className="text-sm md:text-base font-semibold truncate">
-              {attendeeName}
-            </p>
-          ) : (
-            <p className="text-sm md:text-base font-semibold truncate">
-              Venue Map
-            </p>
-          )}
+          <p className="text-sm md:text-base font-semibold truncate">
+            {attendeeName || "Venue Map"}
+          </p>
 
           {headerSeatSummary && (
             <p className="text-xs md:text-sm text-muted-foreground truncate">
@@ -734,7 +689,7 @@ export function PathfindingVisualization({
           )}
 
           {isCheckedIn && (
-            <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300">
+            <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
               <CheckCircle2 className="w-4 h-4" />
               <span className="text-xs md:text-sm">Checked In</span>
             </div>
@@ -757,9 +712,7 @@ export function PathfindingVisualization({
     );
   };
 
-  // ---------------------------------------------------------------------------
   // UI
-  // ---------------------------------------------------------------------------
   if (isLoading) {
     return (
       <Card className="bg-card/80 border-border p-6 md:p-8 shadow-sm">
@@ -839,7 +792,7 @@ export function PathfindingVisualization({
         </div>
       )}
 
-      {/* Normal embedded view */}
+      {/* Embedded view */}
       <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
         {error && (
           <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
@@ -854,7 +807,7 @@ export function PathfindingVisualization({
               <HeaderContent variant="embedded" />
             ) : (
               <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
-                <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
+                <p className="text-xs md:text-sm text-foreground leading-relaxed">
                   <span className="font-semibold text-sm md:text-base">
                     Venue Map
                   </span>
@@ -875,7 +828,8 @@ export function PathfindingVisualization({
         <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
           <div
             ref={containerRef}
-            className="relative w-full h-[75vh] md:h-[550px] lg:h-[650px] max-w-full overscroll-contain"
+            // 70vh on all breakpoints → fills most of screen, centered
+            className="relative w-full h-[70vh] max-w-full overscroll-contain"
           >
             <canvas
               {...canvasProps}
