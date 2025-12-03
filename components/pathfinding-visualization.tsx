@@ -172,16 +172,19 @@ export function PathfindingVisualization({
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
-
+  
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
-
-      // mark that this fullscreen came from auto mode
+      // this fullscreen was triggered automatically
       autoFullscreenRef.current = true;
-
+  
+      // open fullscreen but start at TRUE "1:1" view
       setIsFullscreen(true);
-      setZoom(2);
-      setPan({ x: 0, y: 0 });
+      setZoom(1);           // 👈  was 2
+      setPan({ x: 0, y: 0 }); // default centered view
+  
+      // let the auto-center logic move the map so the seat is in view,
+      // but keep the zoom at 1:1
       shouldAutoCenterRef.current = true;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
