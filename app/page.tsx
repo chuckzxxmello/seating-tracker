@@ -23,7 +23,7 @@ export default function CheckinPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [hasLoadedAttendees, setHasLoadedAttendees] = useState(false);
 
-  // search state
+  // search + selection
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<Attendee[]>([]);
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(
@@ -69,7 +69,7 @@ export default function CheckinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // helpers for search
+  // ---------- search helpers ----------
   const normalize = (value: string | null | undefined): string =>
     (value ?? "")
       .toString()
@@ -130,7 +130,7 @@ export default function CheckinPage() {
 
       if (results.length > 0) {
         setSearchResults(results);
-        setSelectedAttendee(results[0]); // drives the map
+        setSelectedAttendee(results[0]);
       } else {
         setError(
           "No attendee found with that ticket number or name. Please check the spelling and try again.",
@@ -188,7 +188,7 @@ export default function CheckinPage() {
     }
   };
 
-  // collect all seat numbers from results
+  // seats from all matched attendees
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
@@ -205,7 +205,7 @@ export default function CheckinPage() {
       ? selectedAttendee.category === "VIP"
       : undefined;
 
-  // copy text
+  // text helpers
   const seatsLabel =
     seatIds.length === 0
       ? ""
@@ -237,7 +237,7 @@ export default function CheckinPage() {
 
       <header className="sticky top-0 z-20 border-b border-border bg-card/70 backdrop-blur-sm" />
 
-      {/* NOTE: no bottom padding so the map sits flush with viewport bottom */}
+      {/* NOTE: pb-0 so there's no empty strip at the bottom */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 pt-10 md:pt-14 pb-0 space-y-8 md:space-y-10">
         {/* Logo */}
         <div className="flex justify-center mb-4 md:mb-6">
@@ -258,7 +258,7 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Search card – hidden after a match is selected */}
+        {/* Search card – hidden AFTER a match is selected */}
         {!selectedAttendee && (
           <Card className="bg-card/90 border border-border p-4 md:8 shadow-lg animate-hero-card backdrop-blur">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -283,12 +283,11 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Map with multi-seat highlight & attendee info inside the header */}
+        {/* Single map card with attendee info in its own header */}
         {seatIds.length > 0 && (
           <PathfindingVisualization
             seatIds={seatIds}
             isVip={isVipForVisualization}
-            showBackground={false}
             attendeeName={selectedAttendee?.name ?? undefined}
             seatSummaryLabel={seatsLabel}
             seatSentence={seatSentence}
@@ -299,7 +298,7 @@ export default function CheckinPage() {
                 ? handleCheckin
                 : undefined
             }
-            autoFullscreenOnSeatChange
+            autoZoomOnSeatChange
           />
         )}
       </main>
