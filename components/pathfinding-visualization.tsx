@@ -629,7 +629,7 @@ export function PathfindingVisualization({
 
     venueNodes.forEach(drawNode);
     ctx.restore();
-  }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet]);
+  }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
   // header helpers
   const hasAttendeeInfo = !!attendeeName;
@@ -770,7 +770,7 @@ export function PathfindingVisualization({
 
           <div
             ref={containerRef}
-            className="relative flex-1 overflow-hidden bg-background overscroll-contain"
+            className="relative flex-1 overflow-hidden bg-[oklch(0.18_0.04_260)] overscroll-contain"
           >
             <canvas
               {...canvasProps}
@@ -825,18 +825,20 @@ export function PathfindingVisualization({
           </>
         )}
 
-        <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
-          <div
-            ref={containerRef}
-            // 70vh on all breakpoints → fills most of screen, centered
-            className="relative w-full h-[70vh] max-w-full overscroll-contain"
-          >
-            <canvas
-              {...canvasProps}
-              className="absolute inset-0 w-full h-full cursor-move touch-none"
-            />
+        {/* Only render the embedded canvas when NOT fullscreen */}
+        {!isFullscreen && (
+          <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
+            <div
+              ref={containerRef}
+              className="relative w-full h-[70vh] max-w-full overscroll-contain"
+            >
+              <canvas
+                {...canvasProps}
+                className="absolute inset-0 w-full h-full cursor-move touch-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </Card>
     </>
   );
