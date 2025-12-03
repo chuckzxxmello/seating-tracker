@@ -538,7 +538,7 @@ export function PathfindingVisualization({
         return;
       } else if (node.type === "custom") {
         // Render custom nodes as a DESSERT TABLE (rectangle, like buffet)
-        const width = 40 * contentScale;
+        const width = 30 * contentScale;
         const height = 120 * contentScale;
       
         // Same dark color as buffet (you can tweak this)
