@@ -69,10 +69,10 @@ export function PathfindingVisualization({
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // auto-center + auto-fullscreen bookkeeping
+  // auto-center bookkeeping (we no longer use auto-centering on seat-change,
+  // but we keep this for future buttons if needed)
   const prevSeatKeyRef = useRef<string>("");
   const shouldAutoCenterRef = useRef<boolean>(false);
-  const autoFullscreenRef = useRef<boolean>(false);
 
   // tuning
   const PAN_SPEED = 1.2;
@@ -172,20 +172,19 @@ export function PathfindingVisualization({
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
-  
+
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
-      // this fullscreen was triggered automatically
-      autoFullscreenRef.current = true;
-  
-      // open fullscreen but start at TRUE "1:1" view
+
+      // Open fullscreen, but use TRUE 1:1 base view:
+      // same as pressing the 1:1 button.
       setIsFullscreen(true);
-      setZoom(1);           // 👈  was 2
-      setPan({ x: 0, y: 0 }); // default centered view
-  
-      // let the auto-center logic move the map so the seat is in view,
-      // but keep the zoom at 1:1
-      shouldAutoCenterRef.current = true;
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+
+      // Do NOT auto-center on the seat; we want the exact same
+      // alignment as the normal 1:1 view.
+      shouldAutoCenterRef.current = false;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
@@ -237,26 +236,10 @@ export function PathfindingVisualization({
     shouldAutoCenterRef.current = false;
   };
 
-  // manual maximize/minimize:
-  // - entering fullscreen: keep current zoom/pan
-  // - leaving an *auto* fullscreen: reset to 1:1 so embedded is full map
   const toggleFullscreen = () => {
-    const wasFullscreen = isFullscreen;
-
-    if (wasFullscreen && autoFullscreenRef.current) {
-      // leaving auto-fullscreen -> go back to default view
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
-      shouldAutoCenterRef.current = false;
-      autoFullscreenRef.current = false;
-    }
-
-    if (!wasFullscreen) {
-      // entering fullscreen manually -> keep current zoom/pan
-      autoFullscreenRef.current = false;
-    }
-
-    setIsFullscreen(!wasFullscreen);
+    setIsFullscreen((prev) => !prev);
+    // keep current zoom/pan; 1:1 button is responsible for reset
+    shouldAutoCenterRef.current = false;
   };
 
   // ---------- double tap / pointer handlers ----------
@@ -427,7 +410,7 @@ export function PathfindingVisualization({
     if (!ctx) return;
 
     const allX = venueNodes.map((n) => n.x);
-    const allY = venueNodes.map((n) => n.y);
+    the const allY = venueNodes.map((n) => n.y);
     const rawMinX = Math.min(...allX);
     const rawMaxX = Math.max(...allX);
     const rawMinY = Math.min(...allY);
@@ -646,7 +629,7 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // ---------- auto-center selected seat (ONLY when fullscreen + flag set) ----------
+  // ---------- auto-center selected seat (currently unused) ----------
   useEffect(() => {
     if (
       !isFullscreen ||
@@ -714,7 +697,6 @@ export function PathfindingVisualization({
       y: centerY - seatCanvasY * zoom,
     });
 
-    // only once
     shouldAutoCenterRef.current = false;
   }, [
     isFullscreen,
