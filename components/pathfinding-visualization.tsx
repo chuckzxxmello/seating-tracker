@@ -15,24 +15,12 @@ import {
 } from "lucide-react";
 
 interface PathfindingVisualizationProps {
-  /** Single seat (old usage) */
   seatId?: number | null;
-
-  /** Highlight multiple table numbers */
   seatIds?: number[];
-
   imageSrc?: string;
   showBackground?: boolean;
-
-  /**
-   * isVip:
-   *  - true  → VIP mode → only VIP tables
-   *  - false → regular mode → only regular tables
-   *  - undefined → admin mode → both
-   */
   isVip?: boolean;
 
-  /** Header content (attendee info) */
   attendeeName?: string;
   seatSummaryLabel?: string;
   seatSentence?: string;
@@ -40,7 +28,6 @@ interface PathfindingVisualizationProps {
   isCheckInLoading?: boolean;
   onCheckIn?: () => void;
 
-  /** When seat changes → auto open fullscreen zoomed */
   autoFullscreenOnSeatChange?: boolean;
 }
 
@@ -82,9 +69,8 @@ export function PathfindingVisualization({
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // track previous seat selection for auto fullscreen
+  // auto-center bookkeeping
   const prevSeatKeyRef = useRef<string>("");
-  // whether we should auto-center the selected seat on next layout
   const shouldAutoCenterRef = useRef<boolean>(false);
 
   // tuning
@@ -93,7 +79,7 @@ export function PathfindingVisualization({
   const WHEEL_ZOOM_OUT = 0.92;
   const DOUBLE_TAP_ZOOM = 1.15;
 
-  // mode
+  // modes
   type Mode = "vip" | "regular" | "admin";
   const mode: Mode =
     isVip === true ? "vip" : isVip === false ? "regular" : "admin";
@@ -119,7 +105,7 @@ export function PathfindingVisualization({
   const hasSelectedSeats = selectedSeatIds.length > 0;
   const seatKey = selectedSeatIds.join(",");
 
-  // load venue map
+  // ---------- load venue map ----------
   useEffect(() => {
     async function loadVenueData() {
       try {
@@ -140,7 +126,7 @@ export function PathfindingVisualization({
     loadVenueData();
   }, []);
 
-  // validate seat(s) against nodes
+  // ---------- validate seat(s) ----------
   useEffect(() => {
     if (!hasSelectedSeats || venueNodes.length === 0) return;
 
@@ -181,7 +167,7 @@ export function PathfindingVisualization({
     }
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
-  // auto fullscreen + zoom when seats change
+  // ---------- auto fullscreen on seat change ----------
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
@@ -189,13 +175,13 @@ export function PathfindingVisualization({
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
       setIsFullscreen(true);
-      setZoom(2); // zoomed in
+      setZoom(2);
       setPan({ x: 0, y: 0 });
       shouldAutoCenterRef.current = true;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
-  // zoom helpers
+  // ---------- zoom helpers ----------
   const clampZoom = (z: number) => Math.min(4, Math.max(0.5, z));
 
   const zoomAtPoint = (factor: number, clientX: number, clientY: number) => {
@@ -238,7 +224,6 @@ export function PathfindingVisualization({
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
-    // next draw will recenter whole venue; no need to auto-center seat
     shouldAutoCenterRef.current = false;
   };
 
@@ -249,18 +234,17 @@ export function PathfindingVisualization({
     if (!wasFullscreen) {
       // entering fullscreen
       setZoom((prev) => (prev < 2 ? 2 : prev));
-      // pan will be overridden by auto-center
       setPan({ x: 0, y: 0 });
       if (hasSelectedSeats) {
         shouldAutoCenterRef.current = true;
       }
     } else {
-      // leaving fullscreen – don't auto-center next time unless seats change
+      // leaving fullscreen
       shouldAutoCenterRef.current = false;
     }
   };
 
-  // double tap
+  // ---------- double tap / pointer handlers ----------
   const handleTouchDoubleTapCheck = (
     e: React.PointerEvent<HTMLCanvasElement>,
   ) => {
@@ -300,7 +284,6 @@ export function PathfindingVisualization({
     zoomAtPoint(DOUBLE_TAP_ZOOM, e.clientX, e.clientY);
   };
 
-  // pointer handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === "touch") {
       const used = handleTouchDoubleTapCheck(e);
@@ -348,7 +331,6 @@ export function PathfindingVisualization({
         x: prev.x + dx,
         y: prev.y + dy,
       }));
-      // user started dragging → stop auto-centering
       shouldAutoCenterRef.current = false;
     } else if (pointers.length >= 2 && lastPinchDistanceRef.current) {
       e.preventDefault();
@@ -393,7 +375,7 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  // native wheel
+  // ---------- wheel zoom ----------
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -406,13 +388,12 @@ export function PathfindingVisualization({
     };
 
     container.addEventListener("wheel", handleWheelNative, { passive: false });
-
     return () => {
       container.removeEventListener("wheel", handleWheelNative);
     };
   }, [isFullscreen]);
 
-  // seat highlighting
+  // ---------- seat highlighting ----------
   const isSeatNodeSelected = (node: VenueNode) => {
     const tableNum = node.label.match(/\d+/)?.[0];
     if (!tableNum || !seatIdSet.has(tableNum)) return false;
@@ -422,7 +403,7 @@ export function PathfindingVisualization({
     return node.type === "table" || node.type === "vip-table";
   };
 
-  // drawing
+  // ---------- drawing ----------
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || venueNodes.length === 0) return;
@@ -650,11 +631,11 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // auto-center selected seat in fullscreen
+  // ---------- auto-center selected seat (ONLY when flag is set) ----------
   useEffect(() => {
     if (
       !isFullscreen ||
-      !autoFullscreenOnSeatChange && !shouldAutoCenterRef.current ||
+      !shouldAutoCenterRef.current ||
       !hasSelectedSeats ||
       venueNodes.length === 0
     ) {
@@ -697,7 +678,6 @@ export function PathfindingVisualization({
     const centeredMinX = minX - offsetXWorld;
     const centeredMinY = minY - offsetYWorld;
 
-    // find the first selected seat node
     const target = venueNodes.find((node) => {
       const tableNum = node.label.match(/\d+/)?.[0];
       if (!tableNum || !seatIdSet.has(tableNum)) return false;
@@ -714,25 +694,23 @@ export function PathfindingVisualization({
     const centerX = cssWidth / 2;
     const centerY = cssHeight / 2;
 
-    // pan is in CSS px; final position ≈ seatCanvas * zoom + pan
     setPan({
       x: centerX - seatCanvasX * zoom,
       y: centerY - seatCanvasY * zoom,
     });
 
-    // we've centered; don't re-center again until explicitly requested
+    // only once
     shouldAutoCenterRef.current = false;
   }, [
     isFullscreen,
-    autoFullscreenOnSeatChange,
+    zoom,
     hasSelectedSeats,
     venueNodes,
     seatIdSet,
-    zoom,
     mode,
   ]);
 
-  // header helpers
+  // ---------- header bits ----------
   const hasAttendeeInfo = !!attendeeName;
 
   const fallbackSeatLabel =
@@ -813,7 +791,7 @@ export function PathfindingVisualization({
     );
   };
 
-  // UI
+  // ---------- loading / error ----------
   if (isLoading) {
     return (
       <Card className="bg-card/80 border-border p-6 md:p-8 shadow-sm">
@@ -853,94 +831,91 @@ export function PathfindingVisualization({
     style: { touchAction: "none" as const },
   } as const;
 
+  // ---------- FULLSCREEN ONLY OR EMBEDDED ONLY ----------
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col min-h-0">
+        {hasAttendeeInfo ? (
+          <HeaderContent variant="fullscreen" />
+        ) : (
+          <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
+            <h3 className="text-lg font-semibold">Venue Map</h3>
+            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+              <Minimize2 className="w-5 h-5" />
+            </Button>
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          className="relative flex-1 min-h-0 overflow-hidden bg-[oklch(0.18_0.04_260)] overscroll-contain"
+        >
+          <canvas
+            {...canvasProps}
+            className="absolute inset-0 w-full h-full cursor-move touch-none"
+          />
+        </div>
+
+        <div className="p-3 bg-card/90 border-t border-border flex items-center justify-center gap-3">
+          <Button variant="outline" size="icon" onClick={handleZoomOut}>
+            <ZoomOut className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleResetView}>
+            1:1
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleZoomIn}>
+            <ZoomIn className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- EMBEDDED ----------
   return (
-    <>
-      {/* Fullscreen overlay */}
-      {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col min-h-0">
-          {hasAttendeeInfo ? (
-            <HeaderContent variant="fullscreen" />
-          ) : (
-            <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
-              <h3 className="text-lg font-semibold">Venue Map</h3>
-              <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
-                <Minimize2 className="w-5 h-5" />
-              </Button>
-            </div>
-          )}
-
-          <div
-            ref={containerRef}
-            className="relative flex-1 min-h-0 overflow-hidden bg-[oklch(0.18_0.04_260)] overscroll-contain"
-          >
-            <canvas
-              {...canvasProps}
-              className="absolute inset-0 w-full h-full cursor-move touch-none"
-            />
-          </div>
-
-          <div className="p-3 bg-card/90 border-t border-border flex items-center justify-center gap-3">
-            <Button variant="outline" size="icon" onClick={handleZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleResetView}>
-              1:1
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-          </div>
+    <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
+      {error && (
+        <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-destructive flex-shrink-0" />
+          <p className="text-xs md:text-sm text-destructive">{error}</p>
         </div>
       )}
 
-      {/* Embedded view */}
-      <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
-        {error && (
-          <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-destructive flex-shrink-0" />
-            <p className="text-xs md:text-sm text-destructive">{error}</p>
-          </div>
-        )}
-
-        {hasSelectedSeats && !error && (
-          <>
-            {hasAttendeeInfo ? (
-              <HeaderContent variant="embedded" />
-            ) : (
-              <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
-                <p className="text-xs md:text-sm text-foreground leading-relaxed">
-                  <span className="font-semibold text-sm md:text-base">
-                    Venue Map
-                  </span>
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleFullscreen}
-                  className="ml-2"
-                >
-                  <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Only render the embedded canvas when NOT fullscreen */}
-        {!isFullscreen && (
-          <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
-            <div
-              ref={containerRef}
-              className="relative w-full h-[70vh] max-w-full overscroll-contain"
-            >
-              <canvas
-                {...canvasProps}
-                className="absolute inset-0 w-full h-full cursor-move touch-none"
-              />
+      {hasSelectedSeats && !error && (
+        <>
+          {hasAttendeeInfo ? (
+            <HeaderContent variant="embedded" />
+          ) : (
+            <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
+              <p className="text-xs md:text-sm text-foreground leading-relaxed">
+                <span className="font-semibold text-sm md:text-base">
+                  Venue Map
+                </span>
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFullscreen}
+                className="ml-2"
+              >
+                <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+              </Button>
             </div>
-          </div>
-        )}
-      </Card>
-    </>
+          )}
+        </>
+      )}
+
+      <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
+        <div
+          ref={containerRef}
+          className="relative w-full h-[70vh] max-w-full overscroll-contain"
+        >
+          <canvas
+            {...canvasProps}
+            className="absolute inset-0 w-full h-full cursor-move touch-none"
+          />
+        </div>
+      </div>
+    </Card>
   );
 }
