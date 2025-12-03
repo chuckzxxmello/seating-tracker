@@ -230,22 +230,11 @@ export function PathfindingVisualization({
     shouldAutoCenterRef.current = false;
   };
 
-  const toggleFullscreen = () => {
-    const wasFullscreen = isFullscreen;
+    const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
-
-    if (!wasFullscreen) {
-      // entering fullscreen
-      setZoom((prev) => (prev < 2 ? 2 : prev));
-      setPan({ x: 0, y: 0 });
-      if (hasSelectedSeats) {
-        shouldAutoCenterRef.current = true;
-      }
-    } else {
-      // leaving fullscreen
-      shouldAutoCenterRef.current = false;
-      // when we exit, keep current zoom/pan; 1:1 button can reset if needed
-    }
+    // When user toggles fullscreen manually, we keep the current zoom/pan.
+    // 1:1 button still resets to the default full-map view.
+    shouldAutoCenterRef.current = false;
   };
 
   // ---------- double tap / pointer handlers ----------
