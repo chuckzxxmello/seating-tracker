@@ -58,7 +58,9 @@ export function PathfindingVisualization({
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
   // pointer / gesture state
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(
+    new Map(),
+  );
   const lastPinchDistanceRef = useRef<number | null>(null);
 
   const dragPointerIdRef = useRef<number | null>(null);
@@ -67,9 +69,10 @@ export function PathfindingVisualization({
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // auto-center bookkeeping
+  // auto-center + auto-fullscreen bookkeeping
   const prevSeatKeyRef = useRef<string>("");
   const shouldAutoCenterRef = useRef<boolean>(false);
+  const autoFullscreenRef = useRef<boolean>(false);
 
   // tuning
   const PAN_SPEED = 1.2;
@@ -166,17 +169,20 @@ export function PathfindingVisualization({
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
   // ---------- auto fullscreen on seat change ----------
-  // When seat changes (homepage search), just open fullscreen at 1:1 / centered map.
   useEffect(() => {
     if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
 
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
+
+      // mark that this fullscreen came from auto mode
+      autoFullscreenRef.current = true;
+
       setIsFullscreen(true);
-      setZoom(1);
+      setZoom(2);
       setPan({ x: 0, y: 0 });
-      shouldAutoCenterRef.current = false;
+      shouldAutoCenterRef.current = true;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
@@ -220,17 +226,34 @@ export function PathfindingVisualization({
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
 
-  // 1:1 should ALWAYS reset to default full-map view
+  // 1:1 should ALWAYS reset to default view (whole map centered)
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    // do NOT auto-center on seat when resetting
     shouldAutoCenterRef.current = false;
   };
 
-  // Maximize/minimize should NEVER change zoom/pan.
+  // manual maximize/minimize:
+  // - entering fullscreen: keep current zoom/pan
+  // - leaving an *auto* fullscreen: reset to 1:1 so embedded is full map
   const toggleFullscreen = () => {
-    setIsFullscreen((prev) => !prev);
-    shouldAutoCenterRef.current = false;
+    const wasFullscreen = isFullscreen;
+
+    if (wasFullscreen && autoFullscreenRef.current) {
+      // leaving auto-fullscreen -> go back to default view
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      shouldAutoCenterRef.current = false;
+      autoFullscreenRef.current = false;
+    }
+
+    if (!wasFullscreen) {
+      // entering fullscreen manually -> keep current zoom/pan
+      autoFullscreenRef.current = false;
+    }
+
+    setIsFullscreen(!wasFullscreen);
   };
 
   // ---------- double tap / pointer handlers ----------
@@ -620,9 +643,7 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // ---------- (optional) auto-center effect ----------
-  // Currently disabled because we never set shouldAutoCenterRef=true,
-  // but kept for future use if you want "focus on seat" behavior again.
+  // ---------- auto-center selected seat (ONLY when fullscreen + flag set) ----------
   useEffect(() => {
     if (
       !isFullscreen ||
@@ -690,10 +711,18 @@ export function PathfindingVisualization({
       y: centerY - seatCanvasY * zoom,
     });
 
+    // only once
     shouldAutoCenterRef.current = false;
-  }, [isFullscreen, zoom, hasSelectedSeats, venueNodes, seatIdSet, mode]);
+  }, [
+    isFullscreen,
+    zoom,
+    hasSelectedSeats,
+    venueNodes,
+    seatIdSet,
+    mode,
+  ]);
 
-  // ---------- header text (VIP-aware) ----------
+  // ---------- header bits ----------
   const hasAttendeeInfo = !!attendeeName;
 
   const fallbackSeatLabel =
@@ -719,7 +748,11 @@ export function PathfindingVisualization({
   const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
   const headerSeatSentence = seatSentence || fallbackSeatSentence;
 
-  const HeaderContent = ({ variant }: { variant: "embedded" | "fullscreen" }) => {
+  const HeaderContent = ({
+    variant,
+  }: {
+    variant: "embedded" | "fullscreen";
+  }) => {
     const isFull = variant === "fullscreen";
 
     return (
