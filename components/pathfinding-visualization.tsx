@@ -7,18 +7,32 @@ import { Button } from "@/components/ui/button";
 import { getVenueMap, type VenueNode } from "@/lib/venue-map-service";
 import {
   AlertCircle,
+  Maximize2,
+  Minimize2,
   ZoomIn,
   ZoomOut,
   CheckCircle2,
 } from "lucide-react";
 
 interface PathfindingVisualizationProps {
+  /** Single seat (old usage) */
   seatId?: number | null;
+
+  /** Highlight multiple table numbers */
   seatIds?: number[];
+
   imageSrc?: string;
   showBackground?: boolean;
+
+  /**
+   * isVip:
+   *  - true  → VIP mode → only VIP tables
+   *  - false → regular mode → only regular tables
+   *  - undefined → admin mode → both
+   */
   isVip?: boolean;
 
+  /** Header content (attendee info) */
   attendeeName?: string;
   seatSummaryLabel?: string;
   seatSentence?: string;
@@ -26,8 +40,8 @@ interface PathfindingVisualizationProps {
   isCheckInLoading?: boolean;
   onCheckIn?: () => void;
 
-  /** zoom in automatically when seatIds change from empty -> something */
-  autoZoomOnSeatChange?: boolean;
+  /** When seat changes → auto open fullscreen zoomed */
+  autoFullscreenOnSeatChange?: boolean;
 }
 
 export function PathfindingVisualization({
@@ -42,7 +56,7 @@ export function PathfindingVisualization({
   isCheckedIn,
   isCheckInLoading,
   onCheckIn,
-  autoZoomOnSeatChange = false,
+  autoFullscreenOnSeatChange = false,
 }: PathfindingVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,33 +65,41 @@ export function PathfindingVisualization({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // zoom / pan
   const [zoom, setZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
-  // pointer / gesture
+  // pointer / gesture state
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(
     new Map(),
   );
   const lastPinchDistanceRef = useRef<number | null>(null);
+
   const dragPointerIdRef = useRef<number | null>(null);
   const lastDragPosRef = useRef<{ x: number; y: number } | null>(null);
+
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // track previous seat selection for auto fullscreen
   const prevSeatKeyRef = useRef<string>("");
 
+  // tuning
   const PAN_SPEED = 1.2;
   const WHEEL_ZOOM_IN = 1.08;
   const WHEEL_ZOOM_OUT = 0.92;
   const DOUBLE_TAP_ZOOM = 1.15;
 
+  // mode
   type Mode = "vip" | "regular" | "admin";
   const mode: Mode =
     isVip === true ? "vip" : isVip === false ? "regular" : "admin";
 
   const isVipMode = mode === "vip";
+  const isRegularMode = mode === "regular";
 
-  // normalize selected seats
+  // normalize seats
   const selectedSeatIds: number[] = (() => {
     if (Array.isArray(seatIds) && seatIds.length > 0) {
       const clean = seatIds
@@ -107,7 +129,7 @@ export function PathfindingVisualization({
           setError("No venue map configured");
         }
       } catch (err) {
-        console.error("[viz] Error loading venue map:", err);
+        console.error("[v0] Error loading venue map:", err);
         setError("Failed to load venue map");
       } finally {
         setIsLoading(false);
@@ -116,7 +138,7 @@ export function PathfindingVisualization({
     loadVenueData();
   }, []);
 
-  // validate seats
+  // validate seat(s) against nodes
   useEffect(() => {
     if (!hasSelectedSeats || venueNodes.length === 0) return;
 
@@ -152,24 +174,25 @@ export function PathfindingVisualization({
         setError(null);
       }
     } catch (err) {
-      console.error("[viz] Error finding table:", err);
+      console.error("[v0] Error finding table:", err);
       setError("Error locating table");
     }
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
 
-  // auto zoom when seats change
+  // auto fullscreen + zoom when seats change
   useEffect(() => {
-    if (!autoZoomOnSeatChange) return;
+    if (!autoFullscreenOnSeatChange) return;
     if (!seatKey) return;
 
     if (seatKey !== prevSeatKeyRef.current) {
       prevSeatKeyRef.current = seatKey;
+      setIsFullscreen(true);
       setZoom(2); // zoomed in
       setPan({ x: 0, y: 0 });
     }
-  }, [seatKey, autoZoomOnSeatChange]);
+  }, [seatKey, autoFullscreenOnSeatChange]);
 
-  // zoom / pan helpers
+  // zoom helpers
   const clampZoom = (z: number) => Math.min(4, Math.max(0.5, z));
 
   const zoomAtPoint = (factor: number, clientX: number, clientY: number) => {
@@ -208,9 +231,18 @@ export function PathfindingVisualization({
 
   const handleZoomIn = () => zoomToCenter(DOUBLE_TAP_ZOOM);
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
+
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  };
+
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => !prev);
+    if (!isFullscreen) {
+      setZoom(2);
+      setPan({ x: 0, y: 0 });
+    }
   };
 
   // double tap
@@ -343,7 +375,7 @@ export function PathfindingVisualization({
     endPointer(e);
   };
 
-  // wheel zoom
+  // native wheel
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -355,10 +387,11 @@ export function PathfindingVisualization({
     };
 
     container.addEventListener("wheel", handleWheelNative, { passive: false });
+
     return () => {
       container.removeEventListener("wheel", handleWheelNative);
     };
-  }, []);
+  }, [isFullscreen]);
 
   // seat highlighting
   const isSeatNodeSelected = (node: VenueNode) => {
@@ -598,7 +631,9 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet]);
 
-  // ---------- UI helpers ----------
+  // header helpers
+  const hasAttendeeInfo = !!attendeeName;
+
   const fallbackSeatLabel =
     !hasSelectedSeats
       ? ""
@@ -608,48 +643,21 @@ export function PathfindingVisualization({
 
   const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
 
-  // ---------- UI ----------
-  if (isLoading) {
+  const HeaderContent = ({
+    variant,
+  }: {
+    variant: "embedded" | "fullscreen";
+  }) => {
+    const isFull = variant === "fullscreen";
+
     return (
-      <Card className="bg-card/80 border-border p-6 md:p-8 shadow-sm">
-        <div className="flex items-center justify-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-          <p className="text-muted-foreground text-center text-sm md:text-base">
-            Loading venue map...
-          </p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (venueNodes.length === 0) {
-    return (
-      <Card className="bg-destructive/10 border border-destructive/40 p-6 md:p-8">
-        <div className="flex items-center gap-3 text-destructive">
-          <AlertCircle className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
-          <p className="text-xs md:text-sm">
-            Please set up the venue map in the admin panel first.
-          </p>
-        </div>
-      </Card>
-    );
-  }
-
-  const canvasProps = {
-    ref: canvasRef,
-    onPointerDown: handlePointerDown,
-    onPointerMove: handlePointerMove,
-    onPointerUp: handlePointerUp,
-    onPointerCancel: handlePointerCancel,
-    onPointerLeave: handlePointerUp,
-    onDoubleClick: handleDoubleClick,
-    style: { touchAction: "none" as const },
-  } as const;
-
-  return (
-    <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
-      {/* header with attendee info + check-in */}
-      <div className="flex gap-3 items-start justify-between p-3 md:p-4 bg-muted/40 border-b border-border">
+      <div
+        className={`flex gap-3 ${
+          isFull
+            ? "items-start justify-between p-4 bg-card/90 border-b border-border"
+            : "items-start justify-between p-3 md:p-4 bg-muted/40 border-b border-border"
+        }`}
+      >
         <div className="space-y-1 flex-1 min-w-0">
           <p className="text-sm md:text-base font-semibold truncate">
             {attendeeName || "Venue Map"}
@@ -686,34 +694,150 @@ export function PathfindingVisualization({
               <span className="text-xs md:text-sm">Checked In</span>
             </div>
           )}
+
+          <Button
+            variant="ghost"
+            size={isFull ? "sm" : "icon"}
+            onClick={toggleFullscreen}
+            className={isFull ? "ml-1" : ""}
+          >
+            {isFull ? (
+              <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
+            ) : (
+              <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+            )}
+          </Button>
         </div>
       </div>
+    );
+  };
 
-      {/* map */}
-      <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
-        <div
-          ref={containerRef}
-          className="relative w-full h-[70vh] max-w-full overscroll-contain"
-        >
-          <canvas
-            {...canvasProps}
-            className="absolute inset-0 w-full h-full cursor-move touch-none"
-          />
+  // UI
+  if (isLoading) {
+    return (
+      <Card className="bg-card/80 border-border p-6 md:p-8 shadow-sm">
+        <div className="flex items-center justify-center gap-3">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+          <p className="text-muted-foreground text-center text-sm md:text-base">
+            Loading venue map...
+          </p>
         </div>
-      </div>
+      </Card>
+    );
+  }
 
-      {/* zoom controls */}
-      <div className="p-3 bg-card/90 border-t border-border flex items-center justify-center gap-3">
-        <Button variant="outline" size="icon" onClick={handleZoomOut}>
-          <ZoomOut className="w-4 h-4" />
-        </Button>
-        <Button variant="outline" size="icon" onClick={handleResetView}>
-          1:1
-        </Button>
-        <Button variant="outline" size="icon" onClick={handleZoomIn}>
-          <ZoomIn className="w-4 h-4" />
-        </Button>
-      </div>
-    </Card>
+  if (venueNodes.length === 0) {
+    return (
+      <Card className="bg-destructive/10 border border-destructive/40 p-6 md:p-8">
+        <div className="flex items-center gap-3 text-destructive">
+          <AlertCircle className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
+          <div>
+            <p className="text-xs md:text-sm">
+              Please set up the venue map in the admin panel first.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const canvasProps = {
+    ref: canvasRef,
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+    onPointerCancel: handlePointerCancel,
+    onPointerLeave: handlePointerUp,
+    onDoubleClick: handleDoubleClick,
+    style: { touchAction: "none" as const },
+  } as const;
+
+  return (
+    <>
+      {/* Fullscreen overlay */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col">
+          {hasAttendeeInfo ? (
+            <HeaderContent variant="fullscreen" />
+          ) : (
+            <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
+              <h3 className="text-lg font-semibold">Venue Map</h3>
+              <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+                <Minimize2 className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+
+          <div
+            ref={containerRef}
+            className="relative flex-1 overflow-hidden bg-background overscroll-contain"
+          >
+            <canvas
+              {...canvasProps}
+              className="absolute inset-0 w-full h-full cursor-move touch-none"
+            />
+          </div>
+
+          <div className="p-3 bg-card/90 border-t border-border flex items-center justify-center gap-3">
+            <Button variant="outline" size="icon" onClick={handleZoomOut}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleResetView}>
+              1:1
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleZoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Embedded view */}
+      <Card className="bg-card/95 border-border overflow-hidden shadow-lg">
+        {error && (
+          <div className="p-3 md:p-4 bg-destructive/10 border-b border-destructive/40 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-destructive flex-shrink-0" />
+            <p className="text-xs md:text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
+        {hasSelectedSeats && !error && (
+          <>
+            {hasAttendeeInfo ? (
+              <HeaderContent variant="embedded" />
+            ) : (
+              <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
+                <p className="text-xs md:text-sm text-foreground leading-relaxed">
+                  <span className="font-semibold text-sm md:text-base">
+                    Venue Map
+                  </span>
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleFullscreen}
+                  className="ml-2"
+                >
+                  <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
+          <div
+            ref={containerRef}
+            // 70vh on all breakpoints → fills most of screen, centered
+            className="relative w-full h-[70vh] max-w-full overscroll-contain"
+          >
+            <canvas
+              {...canvasProps}
+              className="absolute inset-0 w-full h-full cursor-move touch-none"
+            />
+          </div>
+        </div>
+      </Card>
+    </>
   );
 }
