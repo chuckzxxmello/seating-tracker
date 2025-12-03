@@ -11,13 +11,14 @@ import {
   Minimize2,
   ZoomIn,
   ZoomOut,
+  CheckCircle2,
 } from "lucide-react";
 
 interface PathfindingVisualizationProps {
   /** Single seat (existing usage) */
   seatId?: number | null;
 
-  /** NEW: highlight multiple table numbers at once */
+  /** Highlight multiple table numbers */
   seatIds?: number[];
 
   imageSrc?: string;
@@ -30,6 +31,17 @@ interface PathfindingVisualizationProps {
    *  - undefined → ADMIN MODE → both VIP and regular tables for these seatId(s)
    */
   isVip?: boolean;
+
+  /** New – info bar content */
+  attendeeName?: string;
+  seatSummaryLabel?: string;
+  seatSentence?: string;
+  isCheckedIn?: boolean;
+  isCheckInLoading?: boolean;
+  onCheckIn?: () => void;
+
+  /** New – when seats change from none → something, open fullscreen + zoom */
+  autoFullscreenOnSeatChange?: boolean;
 }
 
 export function PathfindingVisualization({
@@ -37,7 +49,14 @@ export function PathfindingVisualization({
   seatIds,
   imageSrc,
   showBackground = false,
-  isVip, // NOTE: no default! undefined means "admin mode"
+  isVip, // undefined = admin
+  attendeeName,
+  seatSummaryLabel,
+  seatSentence,
+  isCheckedIn,
+  isCheckInLoading,
+  onCheckIn,
+  autoFullscreenOnSeatChange = false,
 }: PathfindingVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -64,6 +83,9 @@ export function PathfindingVisualization({
   // double-tap / double-click
   const lastTapTimeRef = useRef<number | null>(null);
   const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // tracks previous seat selection for auto-fullscreen
+  const prevSeatKeyRef = useRef<string>("");
 
   // tuning
   const PAN_SPEED = 1.2;
@@ -103,6 +125,7 @@ export function PathfindingVisualization({
 
   const seatIdSet = new Set(selectedSeatIds.map((id) => String(id)));
   const hasSelectedSeats = selectedSeatIds.length > 0;
+  const seatKey = selectedSeatIds.join(",");
 
   // ---------------------------------------------------------------------------
   // Load venue nodes
@@ -139,7 +162,7 @@ export function PathfindingVisualization({
           ? ["vip-table"]
           : mode === "regular"
           ? ["table"]
-          : ["table", "vip-table"]; // admin mode → both
+          : ["table", "vip-table"];
 
       const matches = venueNodes.filter((node) => {
         if (!allowedTypes.includes(node.type)) return false;
@@ -169,6 +192,21 @@ export function PathfindingVisualization({
       setError("Error locating table");
     }
   }, [hasSelectedSeats, seatIdSet, selectedSeatIds, venueNodes, mode]);
+
+  // ---------------------------------------------------------------------------
+  // Auto fullscreen + zoom when a new seat selection comes in
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!autoFullscreenOnSeatChange) return;
+    if (!seatKey) return;
+
+    if (seatKey !== prevSeatKeyRef.current) {
+      prevSeatKeyRef.current = seatKey;
+      setIsFullscreen(true);
+      setZoom(2); // zoomed-in view
+      setPan({ x: 0, y: 0 }); // centered; tables already roughly centered
+    }
+  }, [seatKey, autoFullscreenOnSeatChange]);
 
   // ---------------------------------------------------------------------------
   // Zoom / pan helpers
@@ -220,7 +258,9 @@ export function PathfindingVisualization({
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
     if (!isFullscreen) {
-      handleResetView();
+      // when entering fullscreen via button, start zoomed-in
+      setZoom(2);
+      setPan({ x: 0, y: 0 });
     }
   };
 
@@ -379,7 +419,7 @@ export function PathfindingVisualization({
   }, [isFullscreen]);
 
   // ---------------------------------------------------------------------------
-  // Seat highlighting logic (VIP / regular / admin) – multi-seat aware
+  // Seat highlighting logic
   // ---------------------------------------------------------------------------
   const isSeatNodeSelected = (node: VenueNode) => {
     const tableNum = node.label.match(/\d+/)?.[0];
@@ -464,28 +504,6 @@ export function PathfindingVisualization({
       y: (y - centeredMinY) * contentScale,
     });
 
-    // helper for rounded rectangles (used by VIP tables)
-    const drawRoundedRect = (
-      ctx: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      r: number,
-    ) => {
-      const radius = Math.min(r, w / 2, h / 2);
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + w - radius, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-      ctx.lineTo(x + w, y + h - radius);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-      ctx.lineTo(x + radius, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-    };
-
     const drawNode = (node: VenueNode) => {
       const highlight = isSeatNodeSelected(node);
       const pos = toCanvas(node.x, node.y);
@@ -554,7 +572,6 @@ export function PathfindingVisualization({
         ctx.textBaseline = "middle";
         ctx.fillText("PHOTO", pos.x, pos.y);
       } else if (node.type === "edge-node") {
-        // invisible
         return;
       } else if (
         node.type === "custom" ||
@@ -588,10 +605,7 @@ export function PathfindingVisualization({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("E", pos.x, pos.y);
-      }
-
-      // regular tables (blue circles)
-      else if (node.type === "table") {
+      } else if (node.type === "table") {
         const tableNum = node.label.match(/\d+/)?.[0];
 
         ctx.fillStyle = "#1E40AF";
@@ -612,23 +626,17 @@ export function PathfindingVisualization({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(tableNum || "", pos.x, pos.y);
-      }
-
-      // VIP tables (red long vertical rectangles)
-      else if (node.type === "vip-table") {
+      } else if (node.type === "vip-table") {
         const tableNum = node.label.match(/\d+/)?.[0];
-      
-        // long vertical bar
-        const width = 22 * contentScale;   // thinner
-        const height = 90 * contentScale;  // taller
+
+        const width = 22 * contentScale;
+        const height = 90 * contentScale;
         const x = pos.x - width / 2;
         const y = pos.y - height / 2;
-      
-        // main red rectangle
+
         ctx.fillStyle = "#DC2626";
         ctx.fillRect(x, y, width, height);
-      
-        // yellow highlight border when selected
+
         if (highlight) {
           const pad = 4 * contentScale;
           ctx.strokeStyle = "#FBBF24";
@@ -640,16 +648,15 @@ export function PathfindingVisualization({
             height + pad * 2,
           );
         }
-      
-        // vertical label text, similar to BUFFET
+
         ctx.save();
         ctx.translate(pos.x, pos.y);
-        ctx.rotate(-Math.PI / 2); // vertical
+        ctx.rotate(-Math.PI / 2);
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `bold ${Math.max(8, 10 * contentScale)}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-      
+
         const labelText = tableNum ? `VIP TABLE ${tableNum}` : "VIP TABLE";
         ctx.fillText(labelText, 0, 0);
         ctx.restore();
@@ -660,6 +667,95 @@ export function PathfindingVisualization({
 
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet]);
+
+  // ---------------------------------------------------------------------------
+  // UI helpers
+  // ---------------------------------------------------------------------------
+  const hasAttendeeInfo = !!attendeeName;
+
+  const fallbackSeatLabel =
+    !hasSelectedSeats
+      ? ""
+      : selectedSeatIds.length === 1
+      ? (isVipMode ? "VIP Seat " : "Seat ") + selectedSeatIds[0]
+      : (isVipMode ? "VIP Seats " : "Seats ") + selectedSeatIds.join(", ");
+
+  const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
+
+  const HeaderContent = ({
+    variant,
+  }: {
+    variant: "embedded" | "fullscreen";
+  }) => {
+    const isFull = variant === "fullscreen";
+
+    return (
+      <div
+        className={`flex gap-3 ${
+          isFull
+            ? "items-start justify-between p-4 bg-card/90 border-b border-border"
+            : "items-start justify-between p-3 md:p-4 bg-muted/40 border-b border-border"
+        }`}
+      >
+        <div className="space-y-1 flex-1 min-w-0">
+          {attendeeName ? (
+            <p className="text-sm md:text-base font-semibold truncate">
+              {attendeeName}
+            </p>
+          ) : (
+            <p className="text-sm md:text-base font-semibold truncate">
+              Venue Map
+            </p>
+          )}
+
+          {headerSeatSummary && (
+            <p className="text-xs md:text-sm text-muted-foreground truncate">
+              {headerSeatSummary}
+            </p>
+          )}
+
+          {seatSentence && (
+            <p className="text-[11px] md:text-xs bg-muted/80 text-muted-foreground p-2 rounded-md leading-relaxed">
+              {seatSentence}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          {onCheckIn && !isCheckedIn && (
+            <Button
+              onClick={onCheckIn}
+              disabled={isCheckInLoading}
+              className="h-9 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1.5" />
+              {isCheckInLoading ? "Processing..." : "Mark as Checked In"}
+            </Button>
+          )}
+
+          {isCheckedIn && (
+            <div className="flex items-center justify-center gap-2 px-3 h-9 md:h-10 rounded-md bg-emerald-900/30 text-emerald-300">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs md:text-sm">Checked In</span>
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            size={isFull ? "sm" : "icon"}
+            onClick={toggleFullscreen}
+            className={isFull ? "ml-1" : ""}
+          >
+            {isFull ? (
+              <Minimize2 className="w-4 h-4 md:w-5 md:h-5" />
+            ) : (
+              <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // UI
@@ -703,32 +799,22 @@ export function PathfindingVisualization({
     style: { touchAction: "none" as const },
   } as const;
 
-  const headerLabelPrefix =
-    mode === "vip" ? "VIP Seat Number " : "Seat Number ";
-
-  const headerSeatLabel =
-    !hasSelectedSeats
-      ? ""
-      : selectedSeatIds.length === 1
-      ? `${headerLabelPrefix}${selectedSeatIds[0]}`
-      : `${headerLabelPrefix}${selectedSeatIds.join(", ")}`;
-
   return (
     <>
       {/* Fullscreen overlay */}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
-            <h3 className="text-lg font-semibold">
-              <h2 className="text-base md:text-lg font-semibold leading-tight">
-                Venue Map
-              </h2>
-              {headerSeatLabel}
-            </h3>
-            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
-              <Minimize2 className="w-5 h-5" />
-            </Button>
-          </div>
+          {hasAttendeeInfo ? (
+            <HeaderContent variant="fullscreen" />
+          ) : (
+            <div className="flex items-center justify-between p-4 bg-card/90 border-b border-border">
+              <h3 className="text-lg font-semibold">Venue Map</h3>
+              <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+                <Minimize2 className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+
           <div
             ref={containerRef}
             className="relative flex-1 overflow-hidden bg-background overscroll-contain"
@@ -738,6 +824,7 @@ export function PathfindingVisualization({
               className="absolute inset-0 w-full h-full cursor-move touch-none"
             />
           </div>
+
           <div className="p-3 bg-card/90 border-t border-border flex items-center justify-center gap-3">
             <Button variant="outline" size="icon" onClick={handleZoomOut}>
               <ZoomOut className="w-4 h-4" />
@@ -762,19 +849,27 @@ export function PathfindingVisualization({
         )}
 
         {hasSelectedSeats && !error && (
-          <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
-            <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
-              <h3 className="font-semibold text-sm md:text-base">Venue Map</h3>
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleFullscreen}
-              className="ml-2"
-            >
-              <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
-            </Button>
-          </div>
+          <>
+            {hasAttendeeInfo ? (
+              <HeaderContent variant="embedded" />
+            ) : (
+              <div className="p-3 md:p-4 bg-muted/40 border-b border-border flex items-center justify-between">
+                <p className="text-xs md:text-sm text-foreground text-center leading-relaxed flex-1">
+                  <span className="font-semibold text-sm md:text-base">
+                    Venue Map
+                  </span>
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleFullscreen}
+                  className="ml-2"
+                >
+                  <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         <div className="w-full bg-[oklch(0.18_0.04_260)] p-3 md:p-4">
