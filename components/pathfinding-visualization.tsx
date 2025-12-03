@@ -714,19 +714,19 @@ export function PathfindingVisualization({
     !hasSelectedSeats
       ? ""
       : selectedSeatIds.length === 1
-      ? (isVipMode ? "VIP Table Number " : "Seat ") + selectedSeatIds[0]
-      : (isVipMode ? "VIP Tables " : "Seats ") + selectedSeatIds.join(", ");
+      ? (isVipMode ? "VIP Table Number " : "Table ") + selectedSeatIds[0]
+      : (isVipMode ? "VIP Tables " : "Tables ") + selectedSeatIds.join(", ");
 
   const fallbackSeatSentence =
     !hasSelectedSeats
       ? ""
       : selectedSeatIds.length === 1
       ? isVipMode
-        ? `Your assigned seat is on VIP Table ${selectedSeatIds[0]}`
-        : `Your assigned seat is Seat ${selectedSeatIds[0]}. Look for the highlighted table on the map below.`
+        ? `Your assigned table is on VIP Table ${selectedSeatIds[0]}`
+        : `Your assigned table is Seat ${selectedSeatIds[0]}. Look for the highlighted table on the map below.`
       : isVipMode
-        ? `Your assigned seats are on VIP Tables ${selectedSeatIds.join(", ")}`
-        : `Your assigned seats are Seats ${selectedSeatIds.join(
+        ? `Your assigned tables are on VIP Tables ${selectedSeatIds.join(", ")}`
+        : `Your assigned tables are Seats ${selectedSeatIds.join(
             ", ",
           )}. Look for the highlighted tables on the map below.`;
 
