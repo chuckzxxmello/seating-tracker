@@ -299,7 +299,7 @@ export default function CheckinPage() {
       )}`;
     } else if (seatIds.length === 1) {
       seatSummaryLabel = `Table ${seatIds[0]}`;
-      seatSentence = `Your assigned seat is Table ${
+      seatSentence = `Your assigned seat is on Table ${
         seatIds[0]
       }. Look for the highlighted table on the map below.`;
     } else {
