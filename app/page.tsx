@@ -34,8 +34,13 @@ export default function CheckinPage() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 🔥 NEW: multi-seat highlight state
+  // 🔥 multi-seat highlight state
   const [highlightSeats, setHighlightSeats] = useState<number[]>([]);
+  /**
+   * null  = mixed or unknown (admin mode => can highlight both table and vip-table)
+   * true  = all matched delegates (with seats) are VIP
+   * false = all matched delegates (with seats) are non-VIP
+   */
   const [highlightVipMode, setHighlightVipMode] = useState<boolean | null>(
     null,
   );
@@ -80,7 +85,6 @@ export default function CheckinPage() {
       .trim()
       .toLowerCase();
 
-  // 🔢 Helper: get seat value like in admin (supports assignedSeat / seat)
   const getSeatValue = (att: Attendee): number | undefined => {
     const anyAtt = att as any;
     const val =
@@ -94,15 +98,18 @@ export default function CheckinPage() {
     return undefined;
   };
 
-  // 🔍 Matching logic including category / team (PMT, Team Eunice, etc.)
+  const getCategoryNormalized = (att: Attendee): string =>
+    normalize((att as any).category);
+
+  // 🔍 Matching logic including category / team (e.g. PMT, Team Eunice)
   const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
     if (tokens.length === 0) return true;
 
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
-    const category = normalize((att as any).category);
+    const category = getCategoryNormalized(att);
 
-    // Full query phrase check first (so "Team Eunice" works nicely)
+    // full phrase first ("Team Eunice")
     const fullQuery = normalize(tokens.join(" "));
     if (
       fullQuery &&
@@ -113,12 +120,11 @@ export default function CheckinPage() {
       return true;
     }
 
-    // Then token-by-token
+    // per-token
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
 
-      // very short tokens (<=2) only checked against ticket (like your admin logic)
       if (token.length <= 2 && /\d/.test(token)) {
         return ticket.includes(token);
       }
@@ -162,7 +168,7 @@ export default function CheckinPage() {
         setSearchResults(results);
         setSelectedAttendee(results[0]);
 
-        // 🔥 NEW: compute all seats for this search term
+        // 🔥 collect all seats for highlight (PMT / Team Eunice etc.)
         const seats = results
           .map((att) => getSeatValue(att))
           .filter(
@@ -172,23 +178,27 @@ export default function CheckinPage() {
         const uniqueSeats = Array.from(new Set(seats));
         setHighlightSeats(uniqueSeats);
 
-        // Determine VIP mode:
-        // - if exactly 1 match and it has a seat -> VIP or regular depending on category
-        // - if multiple matches -> admin mode (highlight both VIP and regular)
-        if (results.length === 1) {
-          const only = results[0];
-          const seatVal = getSeatValue(only);
-          if (typeof seatVal === "number") {
-            const categoryRaw = normalize((only as any).category);
-            setHighlightVipMode(
-              categoryRaw === "vip" ? true : categoryRaw ? false : null,
-            );
-          } else {
-            setHighlightVipMode(null);
-          }
-        } else {
-          // multiple attendees -> admin mode (no VIP filter)
+        // 🔥 determine VIP mode from ALL matched delegates that have seats
+        const withSeat = results.filter(
+          (att) => typeof getSeatValue(att) === "number",
+        );
+
+        if (withSeat.length === 0) {
           setHighlightVipMode(null);
+        } else {
+          const vipFlags = withSeat.map(
+            (att) => getCategoryNormalized(att) === "vip",
+          );
+          const allVip = vipFlags.every(Boolean);
+          const noneVip = vipFlags.every((flag) => !flag);
+
+          if (allVip) {
+            setHighlightVipMode(true); // all VIP delegates
+          } else if (noneVip) {
+            setHighlightVipMode(false); // all non-VIP delegates
+          } else {
+            setHighlightVipMode(null); // mixed → admin mode
+          }
         }
       } else {
         setError(
@@ -249,7 +259,6 @@ export default function CheckinPage() {
 
   // ---------- seat IDs for visualization ----------
 
-  // Prefer multi-seat highlight from search (PMT / Team Eunice, etc.)
   const seatIds: number[] =
     highlightSeats.length > 0
       ? highlightSeats
@@ -259,14 +268,18 @@ export default function CheckinPage() {
       ? [selectedAttendee.assignedSeat]
       : [];
 
-  // VIP awareness:
-  // - multi-seat highlight: VIP mode only when exactly 1 and we know it's VIP
-  // - single attendee: use that attendee's category
+  const usingHighlight = highlightSeats.length > 0;
+
+  /**
+   * VIP mode for the map:
+   * - If we're using highlightSeats → use aggregated VIP info (highlightVipMode).
+   * - Otherwise → use the single selected attendee's category.
+   */
   const isVipForVisualization =
-    highlightSeats.length > 0
-      ? highlightSeats.length === 1
-        ? highlightVipMode === true
-        : undefined // admin mode, allow both VIP + regular
+    usingHighlight
+      ? highlightVipMode === null
+        ? undefined // admin mode: allow both VIP + regular nodes
+        : highlightVipMode
       : selectedAttendee
       ? selectedAttendee.category === "VIP"
       : undefined;
@@ -277,7 +290,6 @@ export default function CheckinPage() {
 
   if (seatIds.length > 0) {
     if (isVipForVisualization && seatIds.length === 1) {
-      // VIP single table
       seatSummaryLabel = `VIP Table Number ${seatIds[0]}`;
       seatSentence = `Your assigned seat is on VIP Table ${seatIds[0]}`;
     } else if (isVipForVisualization && seatIds.length > 1) {
@@ -335,7 +347,7 @@ export default function CheckinPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 <Input
-                  placeholder="Enter name..."
+                  placeholder="Enter name, ticket, or team..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
