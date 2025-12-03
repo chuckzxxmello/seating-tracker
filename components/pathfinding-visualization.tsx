@@ -726,7 +726,7 @@ export function PathfindingVisualization({
         : `Your assigned table is Seat ${selectedSeatIds[0]}. Look for the highlighted table on the map below.`
       : isVipMode
         ? `Your assigned tables are on VIP Tables ${selectedSeatIds.join(", ")}`
-        : `Your assigned tables are Seats ${selectedSeatIds.join(
+        : `Your assigned tables are Tables ${selectedSeatIds.join(
             ", ",
           )}. Look for the highlighted tables on the map below.`;
 
