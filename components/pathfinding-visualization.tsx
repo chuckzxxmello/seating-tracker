@@ -84,6 +84,8 @@ export function PathfindingVisualization({
 
   // track previous seat selection for auto fullscreen
   const prevSeatKeyRef = useRef<string>("");
+  // whether we should auto-center the selected seat on next layout
+  const shouldAutoCenterRef = useRef<boolean>(false);
 
   // tuning
   const PAN_SPEED = 1.2;
@@ -189,6 +191,7 @@ export function PathfindingVisualization({
       setIsFullscreen(true);
       setZoom(2); // zoomed in
       setPan({ x: 0, y: 0 });
+      shouldAutoCenterRef.current = true;
     }
   }, [seatKey, autoFullscreenOnSeatChange]);
 
@@ -235,13 +238,25 @@ export function PathfindingVisualization({
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    // next draw will recenter whole venue; no need to auto-center seat
+    shouldAutoCenterRef.current = false;
   };
 
   const toggleFullscreen = () => {
+    const wasFullscreen = isFullscreen;
     setIsFullscreen((prev) => !prev);
-    if (!isFullscreen) {
-      setZoom(2);
+
+    if (!wasFullscreen) {
+      // entering fullscreen
+      setZoom((prev) => (prev < 2 ? 2 : prev));
+      // pan will be overridden by auto-center
       setPan({ x: 0, y: 0 });
+      if (hasSelectedSeats) {
+        shouldAutoCenterRef.current = true;
+      }
+    } else {
+      // leaving fullscreen – don't auto-center next time unless seats change
+      shouldAutoCenterRef.current = false;
     }
   };
 
@@ -333,6 +348,8 @@ export function PathfindingVisualization({
         x: prev.x + dx,
         y: prev.y + dy,
       }));
+      // user started dragging → stop auto-centering
+      shouldAutoCenterRef.current = false;
     } else if (pointers.length >= 2 && lastPinchDistanceRef.current) {
       e.preventDefault();
       const [p1, p2] = pointers;
@@ -345,6 +362,7 @@ export function PathfindingVisualization({
 
       zoomAtPoint(factor, centerX, centerY);
       lastPinchDistanceRef.current = dist;
+      shouldAutoCenterRef.current = false;
     }
   };
 
@@ -384,6 +402,7 @@ export function PathfindingVisualization({
       e.preventDefault();
       const factor = e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT;
       zoomAtPoint(factor, e.clientX, e.clientY);
+      shouldAutoCenterRef.current = false;
     };
 
     container.addEventListener("wheel", handleWheelNative, { passive: false });
@@ -631,6 +650,88 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
+  // auto-center selected seat in fullscreen
+  useEffect(() => {
+    if (
+      !isFullscreen ||
+      !autoFullscreenOnSeatChange && !shouldAutoCenterRef.current ||
+      !hasSelectedSeats ||
+      venueNodes.length === 0
+    ) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const parent = canvas.parentElement as HTMLElement | null;
+    const cssWidth = parent?.clientWidth ?? 1400;
+    const cssHeight = parent?.clientHeight ?? 800;
+
+    const allX = venueNodes.map((n) => n.x);
+    const allY = venueNodes.map((n) => n.y);
+    const rawMinX = Math.min(...allX);
+    const rawMaxX = Math.max(...allX);
+    const rawMinY = Math.min(...allY);
+    const rawMaxY = Math.max(...allY);
+
+    const margin = 40;
+    const minX = rawMinX - margin;
+    const maxX = rawMaxX + margin;
+    const minY = rawMinY - margin;
+    const maxY = rawMaxY + margin;
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    const scaleX = cssWidth / contentWidth;
+    const scaleY = cssHeight / contentHeight;
+    const contentScale = Math.min(scaleX, scaleY);
+
+    const viewWidthWorld = cssWidth / contentScale;
+    const viewHeightWorld = cssHeight / contentScale;
+
+    const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
+    const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
+
+    const centeredMinX = minX - offsetXWorld;
+    const centeredMinY = minY - offsetYWorld;
+
+    // find the first selected seat node
+    const target = venueNodes.find((node) => {
+      const tableNum = node.label.match(/\d+/)?.[0];
+      if (!tableNum || !seatIdSet.has(tableNum)) return false;
+      if (mode === "vip") return node.type === "vip-table";
+      if (mode === "regular") return node.type === "table";
+      return node.type === "table" || node.type === "vip-table";
+    });
+
+    if (!target) return;
+
+    const seatCanvasX = (target.x - centeredMinX) * contentScale;
+    const seatCanvasY = (target.y - centeredMinY) * contentScale;
+
+    const centerX = cssWidth / 2;
+    const centerY = cssHeight / 2;
+
+    // pan is in CSS px; final position ≈ seatCanvas * zoom + pan
+    setPan({
+      x: centerX - seatCanvasX * zoom,
+      y: centerY - seatCanvasY * zoom,
+    });
+
+    // we've centered; don't re-center again until explicitly requested
+    shouldAutoCenterRef.current = false;
+  }, [
+    isFullscreen,
+    autoFullscreenOnSeatChange,
+    hasSelectedSeats,
+    venueNodes,
+    seatIdSet,
+    zoom,
+    mode,
+  ]);
+
   // header helpers
   const hasAttendeeInfo = !!attendeeName;
 
@@ -756,7 +857,7 @@ export function PathfindingVisualization({
     <>
       {/* Fullscreen overlay */}
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col">
+        <div className="fixed inset-0 z-50 bg-background flex flex-col min-h-0">
           {hasAttendeeInfo ? (
             <HeaderContent variant="fullscreen" />
           ) : (
@@ -770,7 +871,7 @@ export function PathfindingVisualization({
 
           <div
             ref={containerRef}
-            className="relative flex-1 overflow-hidden bg-[oklch(0.18_0.04_260)] overscroll-contain"
+            className="relative flex-1 min-h-0 overflow-hidden bg-[oklch(0.18_0.04_260)] overscroll-contain"
           >
             <canvas
               {...canvasProps}
