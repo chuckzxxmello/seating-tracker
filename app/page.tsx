@@ -291,20 +291,20 @@ export default function CheckinPage() {
   if (seatIds.length > 0) {
     if (isVipForVisualization && seatIds.length === 1) {
       seatSummaryLabel = `VIP Table Number ${seatIds[0]}`;
-      seatSentence = `Your assigned table is on VIP Table ${seatIds[0]}`;
+      seatSentence = `Your assigned seat is on VIP Table ${seatIds[0]}`;
     } else if (isVipForVisualization && seatIds.length > 1) {
       seatSummaryLabel = `VIP Tables ${seatIds.join(", ")}`;
-      seatSentence = `Your assigned tables are on VIP Tables ${seatIds.join(
+      seatSentence = `Your assigned seats are on VIP Tables ${seatIds.join(
         ", ",
       )}`;
     } else if (seatIds.length === 1) {
       seatSummaryLabel = `Table ${seatIds[0]}`;
-      seatSentence = `Your assigned table is Table ${
+      seatSentence = `Your assigned seat is Table ${
         seatIds[0]
       }. Look for the highlighted table on the map below.`;
     } else {
       seatSummaryLabel = `Tables ${seatIds.join(", ")}`;
-      seatSentence = `Your assigned tables are ${seatIds.join(
+      seatSentence = `Your assigned seats are on the Tables ${seatIds.join(
         ", ",
       )}. Look for the highlighted tables on the map below.`;
     }
