@@ -335,7 +335,7 @@ export default function CheckinPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 <Input
-                  placeholder="Enter name, ticket, or team..."
+                  placeholder="Enter name..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
