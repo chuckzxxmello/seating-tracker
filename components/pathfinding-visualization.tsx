@@ -222,10 +222,16 @@ export function PathfindingVisualization({
   const handleZoomOut = () => zoomToCenter(1 / DOUBLE_TAP_ZOOM);
 
   const handleResetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+  setZoom(1);
+  setPan({ x: 0, y: 0 });
+
+  // After resetting, auto-center around the selected seat/table
+  if (hasSelectedSeats) {
+    shouldAutoCenterRef.current = true;
+  } else {
     shouldAutoCenterRef.current = false;
-  };
+  }
+};
 
   const toggleFullscreen = () => {
     const wasFullscreen = isFullscreen;
@@ -631,96 +637,103 @@ export function PathfindingVisualization({
     ctx.restore();
   }, [venueNodes, zoom, pan, selectedSeatIds, mode, seatIdSet, isFullscreen]);
 
-  // ---------- auto-center selected seat (ONLY when flag is set) ----------
-  useEffect(() => {
-    if (
-      !isFullscreen ||
-      !shouldAutoCenterRef.current ||
-      !hasSelectedSeats ||
-      venueNodes.length === 0
-    ) {
-      return;
-    }
+  // ---------- auto-center selected seat (when flag is set) ----------
+useEffect(() => {
+  if (
+    !shouldAutoCenterRef.current ||
+    !hasSelectedSeats ||
+    venueNodes.length === 0
+  ) {
+    return;
+  }
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const canvas = canvasRef.current;
+  if (!canvas) return;
 
-    const parent = canvas.parentElement as HTMLElement | null;
-    const cssWidth = parent?.clientWidth ?? 1400;
-    const cssHeight = parent?.clientHeight ?? 800;
+  const parent = canvas.parentElement as HTMLElement | null;
+  const cssWidth = parent?.clientWidth ?? 1400;
+  const cssHeight = parent?.clientHeight ?? 800;
 
-    const allX = venueNodes.map((n) => n.x);
-    const allY = venueNodes.map((n) => n.y);
-    const rawMinX = Math.min(...allX);
-    const rawMaxX = Math.max(...allX);
-    const rawMinY = Math.min(...allY);
-    const rawMaxY = Math.max(...allY);
+  const allX = venueNodes.map((n) => n.x);
+  const allY = venueNodes.map((n) => n.y);
+  const rawMinX = Math.min(...allX);
+  const rawMaxX = Math.max(...allX);
+  const rawMinY = Math.min(...allY);
+  const rawMaxY = Math.max(...allY);
 
-    const margin = 40;
-    const minX = rawMinX - margin;
-    const maxX = rawMaxX + margin;
-    const minY = rawMinY - margin;
-    const maxY = rawMaxY + margin;
+  const margin = 40;
+  const minX = rawMinX - margin;
+  const maxX = rawMaxX + margin;
+  const minY = rawMinY - margin;
+  const maxY = rawMaxY + margin;
 
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
 
-    const scaleX = cssWidth / contentWidth;
-    const scaleY = cssHeight / contentHeight;
-    const contentScale = Math.min(scaleX, scaleY);
+  const scaleX = cssWidth / contentWidth;
+  const scaleY = cssHeight / contentHeight;
+  const contentScale = Math.min(scaleX, scaleY);
 
-    const viewWidthWorld = cssWidth / contentScale;
-    const viewHeightWorld = cssHeight / contentScale;
+  const viewWidthWorld = cssWidth / contentScale;
+  const viewHeightWorld = cssHeight / contentScale;
 
-    const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
-    const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
+  const offsetXWorld = (viewWidthWorld - contentWidth) / 2;
+  const offsetYWorld = (viewHeightWorld - contentHeight) / 2;
 
-    const centeredMinX = minX - offsetXWorld;
-    const centeredMinY = minY - offsetYWorld;
+  const centeredMinX = minX - offsetXWorld;
+  const centeredMinY = minY - offsetYWorld;
 
-    const target = venueNodes.find((node) => {
-      const tableNum = node.label.match(/\d+/)?.[0];
-      if (!tableNum || !seatIdSet.has(tableNum)) return false;
-      if (mode === "vip") return node.type === "vip-table";
-      if (mode === "regular") return node.type === "table";
-      return node.type === "table" || node.type === "vip-table";
-    });
+  const target = venueNodes.find((node) => {
+    const tableNum = node.label.match(/\d+/)?.[0];
+    if (!tableNum || !seatIdSet.has(tableNum)) return false;
+    if (mode === "vip") return node.type === "vip-table";
+    if (mode === "regular") return node.type === "table";
+    return node.type === "table" || node.type === "vip-table";
+  });
 
-    if (!target) return;
+  if (!target) return;
 
-    const seatCanvasX = (target.x - centeredMinX) * contentScale;
-    const seatCanvasY = (target.y - centeredMinY) * contentScale;
+  const seatCanvasX = (target.x - centeredMinX) * contentScale;
+  const seatCanvasY = (target.y - centeredMinY) * contentScale;
 
-    const centerX = cssWidth / 2;
-    const centerY = cssHeight / 2;
+  const centerX = cssWidth / 2;
+  const centerY = cssHeight / 2;
 
-    setPan({
-      x: centerX - seatCanvasX * zoom,
-      y: centerY - seatCanvasY * zoom,
-    });
+  setPan({
+    x: centerX - seatCanvasX * zoom,
+    y: centerY - seatCanvasY * zoom,
+  });
 
-    // only once
-    shouldAutoCenterRef.current = false;
-  }, [
-    isFullscreen,
-    zoom,
-    hasSelectedSeats,
-    venueNodes,
-    seatIdSet,
-    mode,
-  ]);
+  // only once per request
+  shouldAutoCenterRef.current = false;
+}, [zoom, hasSelectedSeats, venueNodes, seatIdSet, mode]);
 
   // ---------- header bits ----------
   const hasAttendeeInfo = !!attendeeName;
-
+  
   const fallbackSeatLabel =
     !hasSelectedSeats
       ? ""
       : selectedSeatIds.length === 1
-      ? (isVipMode ? "VIP Seat " : "Seat ") + selectedSeatIds[0]
-      : (isVipMode ? "VIP Seats " : "Seats ") + selectedSeatIds.join(", ");
-
+      ? (isVipMode ? "VIP Table Number " : "Seat ") + selectedSeatIds[0]
+      : (isVipMode ? "VIP Tables " : "Seats ") + selectedSeatIds.join(", ");
+  
+  const fallbackSeatSentence =
+    !hasSelectedSeats
+      ? ""
+      : selectedSeatIds.length === 1
+      ? isVipMode
+        ? `Your assigned seat is on VIP Table ${selectedSeatIds[0]}`
+        : `Your assigned seat is Seat ${selectedSeatIds[0]}. Look for the highlighted table on the map below.`
+      : isVipMode
+        ? `Your assigned seats are on VIP Tables ${selectedSeatIds.join(", ")}`
+        : `Your assigned seats are Seats ${selectedSeatIds.join(
+            ", ",
+          )}. Look for the highlighted tables on the map below.`;
+  
   const headerSeatSummary = seatSummaryLabel || fallbackSeatLabel;
+  const headerSeatSentence = seatSentence || fallbackSeatSentence;
+
 
   const HeaderContent = ({
     variant,
@@ -750,7 +763,7 @@ export function PathfindingVisualization({
 
           {seatSentence && (
             <p className="text-[11px] md:text-xs bg-muted/80 text-muted-foreground p-2 rounded-md leading-relaxed">
-              {seatSentence}
+              {headerSeatSentence}
             </p>
           )}
         </div>
