@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle2 } from "lucide-react";
+import { Search } from "lucide-react";
 import Image from "next/image";
 import { PathfindingVisualization } from "@/components/pathfinding-visualization";
 import {
@@ -26,9 +26,12 @@ export default function CheckinPage() {
   // 🔹 Search state
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<Attendee[]>([]);
-  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(
+    null,
+  );
 
   const [isSearching, setIsSearching] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Background music (low volume, starts after first click)
@@ -64,48 +67,38 @@ export default function CheckinPage() {
   };
 
   useEffect(() => {
-    // Preload attendees on first mount (optional but nice)
     loadAttendees();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Normalization helper for safer, case-insensitive matching
+  // 🔹 Normalization helper
   const normalize = (value: string | null | undefined): string =>
     (value ?? "")
       .toString()
-      .normalize("NFKD") // handle accents if any
+      .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
       .trim()
       .toLowerCase();
 
-  // 🔹 Smart matching logic (same behavior intent as before, but fixed for full-phrase like "AJ Velasco")
   const matchesSearch = (att: Attendee, tokens: string[]): boolean => {
     if (tokens.length === 0) return true;
 
     const name = normalize(att.name);
     const ticket = normalize(att.ticketNumber);
 
-    // ✅ NEW: full-phrase check — this is what makes "AJ Velasco" work
-    // without changing the existing token-based behavior.
     const fullQuery = normalize(tokens.join(" "));
-    if (
-      fullQuery &&
-      (name.includes(fullQuery) || ticket.includes(fullQuery))
-    ) {
+    if (fullQuery && (name.includes(fullQuery) || ticket.includes(fullQuery))) {
       return true;
     }
 
-    // Existing per-token behavior kept as-is
     return tokens.every((rawToken) => {
       const token = normalize(rawToken);
       if (!token) return true;
 
-      // If token is very short and has a digit (e.g. "B3"), treat it as ticket-focused search
       if (token.length <= 2 && /\d/.test(token)) {
         return ticket.includes(token);
       }
 
-      // Otherwise, match against BOTH name and ticket
       return name.includes(token) || ticket.includes(token);
     });
   };
@@ -130,7 +123,6 @@ export default function CheckinPage() {
     setSearchResults([]);
 
     try {
-      // Ensure we have attendees loaded
       if (!hasLoadedAttendees) {
         await loadAttendees();
       }
@@ -139,10 +131,10 @@ export default function CheckinPage() {
 
       if (results.length > 0) {
         setSearchResults(results);
-        setSelectedAttendee(results[0]); // ✅ triggers map + hides search card
+        setSelectedAttendee(results[0]); // this will drive the map + fullscreen
       } else {
         setError(
-          "No attendee found with that ticket number or name. Please check the spelling and try again."
+          "No attendee found with that ticket number or name. Please check the spelling and try again.",
         );
       }
     } catch (err) {
@@ -161,12 +153,12 @@ export default function CheckinPage() {
         const isVIP = selectedAttendee.category === "VIP";
         const capacity = await checkTableCapacity(
           selectedAttendee.assignedSeat,
-          isVIP
+          isVIP,
         );
 
         if (capacity.isFull) {
           setError(
-            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`
+            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} seats). Cannot check in.`,
           );
           return;
         }
@@ -178,14 +170,14 @@ export default function CheckinPage() {
     }
 
     try {
-      setIsSearching(true);
+      setIsCheckingIn(true);
       await checkInAttendee(selectedAttendee.id!);
       await logAudit(
         "check_in",
         user?.email || "",
         selectedAttendee.ticketNumber,
         selectedAttendee.assignedSeat,
-        { name: selectedAttendee.name }
+        { name: selectedAttendee.name },
       );
 
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
@@ -193,29 +185,28 @@ export default function CheckinPage() {
       console.error("[checkin] Check-in failed:", err);
       setError("Failed to check in. Please try again.");
     } finally {
-      setIsSearching(false);
+      setIsCheckingIn(false);
     }
   };
 
-  // 🔹 collect ALL seat numbers from matches (for PMT / Chuckz scenarios)
+  // 🔹 collect ALL seat numbers from matches
   const seatIds: number[] = Array.from(
     new Set(
       searchResults
         .map((att) => att.assignedSeat)
         .filter(
           (seat: any): seat is number =>
-            typeof seat === "number" && !Number.isNaN(seat)
-        )
-    )
+            typeof seat === "number" && !Number.isNaN(seat),
+        ),
+    ),
   );
 
-  // Only force VIP/regular if exactly one seat
   const isVipForVisualization =
     seatIds.length === 1 && selectedAttendee
       ? selectedAttendee.category === "VIP"
       : undefined;
 
-  // Text helpers for seats (for the PMT copy you wanted)
+  // Text helpers for seats
   const seatsLabel =
     seatIds.length === 0
       ? ""
@@ -229,7 +220,7 @@ export default function CheckinPage() {
       : seatIds.length === 1
       ? `Your assigned seat is Seat ${seatIds[0]}. Look for the highlighted table on the map below.`
       : `Your assigned seats are Seats ${seatIds.join(
-          ", "
+          ", ",
         )}. Look for the highlighted tables on the map below.`;
 
   return (
@@ -292,60 +283,26 @@ export default function CheckinPage() {
           </Card>
         )}
 
-        {/* Selected attendee info + check-in */}
-        {selectedAttendee && (
-          <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="space-y-1">
-                {/* Name only (e.g. Abbey Velasco, PMT) */}
-                <p className="text-sm md:text-base font-semibold">
-                  {selectedAttendee.name}
-                </p>
-
-                {/* Seats only (no Ticket: ...) */}
-                {seatIds.length > 0 && (
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    {seatsLabel}
-                  </p>
-                )}
-
-                <p className="text-xs md:text-sm bg-muted/80 text-muted-foreground p-2 md:p-3 rounded-lg leading-relaxed">
-                  {seatSentence}
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                {!selectedAttendee.checkedIn ? (
-                  <Button
-                    onClick={handleCheckin}
-                    disabled={isSearching}
-                    className="w-full sm:w-auto h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {isSearching ? "Processing..." : "Mark as Checked In"}
-                  </Button>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 w-full sm:w-auto py-2 rounded-md bg-emerald-900/30 text-emerald-300 animate-scale-in">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-sm md:text-base">Checked In</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Map with multi-seat highlight */}
+        {/* Map with multi-seat highlight + attendee info inside */}
         {seatIds.length > 0 && (
-          <Card className="bg-card/95 border border-border p-4 md:p-6 shadow-lg space-y-4 md:space-y-6 animate-slide-up">
-            <div className="mb-2 animate-fade-in">
-              <PathfindingVisualization
-                seatIds={seatIds}
-                isVip={isVipForVisualization}
-                showBackground={false}
-              />
-            </div>
-          </Card>
+          <PathfindingVisualization
+            seatIds={seatIds}
+            isVip={isVipForVisualization}
+            showBackground={false}
+            // new props for header content
+            attendeeName={selectedAttendee?.name ?? undefined}
+            seatSummaryLabel={seatsLabel}
+            seatSentence={seatSentence}
+            isCheckedIn={!!selectedAttendee?.checkedIn}
+            isCheckInLoading={isCheckingIn}
+            onCheckIn={
+              selectedAttendee && !selectedAttendee.checkedIn
+                ? handleCheckin
+                : undefined
+            }
+            // auto-open fullscreen + zoom when a seat is found
+            autoFullscreenOnSeatChange
+          />
         )}
       </main>
     </div>
