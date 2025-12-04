@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { X, Save } from "lucide-react"
-import { updateAttendee, logAudit, checkTableCapacity, cancelCheckIn } from "@/lib/firebase-service"
+import { updateAttendee, logAudit, cancelCheckIn } from "@/lib/firebase-service"
 
 interface Attendee {
   id: string
@@ -43,49 +43,30 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
   const handleSave = async () => {
     const isVipFlag = !!editData.isVip
-
+  
     // Decide what to store in category
     const categoryToSave = isVipFlag ? "VIP" : attendee.category === "VIP" ? "" : attendee.category
-
+  
     const errors: string[] = []
     if (!editData.name.trim()) errors.push("Full name is required")
     if (!editData.ticketNumber.trim()) errors.push("Ticket number is required")
-
+  
     if (errors.length) {
       setError(errors.join(", "))
       return
     }
-
-    // Only check capacity when seat changes
-    if (editData.assignedSeat && editData.assignedSeat !== attendee.assignedSeat) {
-      try {
-        const tableNumber = editData.assignedSeat
-        const capacity = await checkTableCapacity(tableNumber, isVipFlag)
-
-        if (capacity.isFull) {
-          setError(
-            `Table ${tableNumber} is at full capacity (${capacity.max} seats). Cannot assign seat.`,
-          )
-          return
-        }
-      } catch (err) {
-        console.error("[v0] Error checking capacity:", err)
-        setError("Failed to check table capacity. Please try again.")
-        return
-      }
-    }
-
+  
     try {
       setIsSaving(true)
       setError(null)
-
+  
       await updateAttendee(attendee.id, {
         name: editData.name.trim(),
         ticketNumber: editData.ticketNumber.trim(),
         assignedSeat: editData.assignedSeat || null,
         category: categoryToSave,          // 🔥 persist VIP / non-VIP
       })
-
+  
       await logAudit(
         "admin_edit_attendee",
         adminEmail,
@@ -107,7 +88,7 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
           },
         },
       )
-
+  
       onSave()
       onClose()
     } catch (err) {
@@ -119,32 +100,35 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
   }
 
   const handleCancelCheckIn = async () => {
-    if (!confirm("Are you sure you want to cancel this check-in?")) return
+  if (!confirm("Are you sure you want to cancel this check-in?")) return;
 
-    try {
-      setIsSaving(true)
-      setError(null)
+  try {
+    setIsSaving(true);
+    setError(null);
 
-      await cancelCheckIn(attendee.id)
-      await logAudit(
-        "cancel_check_in",
-        adminEmail,
-        editData.ticketNumber,
-        editData.assignedSeat || null,
-        {
-          reason: "Admin cancelled check-in",
-        },
-      )
+    await cancelCheckIn(attendee.id);
 
-      setEditData({ ...editData, checkedIn: false })
-      onSave()
-    } catch (err) {
-      console.error("[v0] Error cancelling check-in:", err)
-      setError("Failed to cancel check-in. Please try again.")
-    } finally {
-      setIsSaving(false)
-    }
+    await logAudit(
+      "cancel_check_in",
+      adminEmail,
+      editData.ticketNumber,
+      editData.assignedSeat || null,
+      {
+        reason: "Admin cancelled check-in",
+      }
+    );
+
+    // Update UI state
+    setEditData({ ...editData, checkedIn: false });
+
+    onSave();
+  } catch (err) {
+    console.error("[v0] Error cancelling check-in:", err);
+    setError("Failed to cancel check-in. Please try again.");
+  } finally {
+    setIsSaving(false);
   }
+};
 
   return (
     <Card className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -243,8 +227,8 @@ export function AttendeeEditor({ attendee, onClose, onSave, adminEmail }: Attend
 
                 <p className="text-slate-500 text-xs mt-1">
                   {editData.isVip
-                    ? "VIP tables have 30 seats capacity."
-                    : "Standard tables have 10 seats capacity."}
+                    ? "This delegate will be treated as VIP for seating and map view."
+                    : "This delegate will be treated as a regular delegate for seating and map view."}
                 </p>
               </div>
             </div>
