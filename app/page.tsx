@@ -215,28 +215,9 @@ export default function CheckinPage() {
 
   const handleCheckin = async () => {
     if (!selectedAttendee) return;
-
-    if (selectedAttendee.assignedSeat) {
-      try {
-        const isVIP = selectedAttendee.category === "VIP";
-        const capacity = await checkTableCapacity(
-          selectedAttendee.assignedSeat,
-          isVIP,
-        );
-
-        if (capacity.isFull) {
-          setError(
-            `Table ${selectedAttendee.assignedSeat} is at full capacity (${capacity.max}/${capacity.max} tables). Cannot check in.`,
-          );
-          return;
-        }
-      } catch (err) {
-        console.error("[checkin] Error checking capacity:", err);
-        setError("Failed to check table capacity. Please try again.");
-        return;
-      }
-    }
-
+  
+    // 🔓 Capacity check removed – allow unlimited people per table
+  
     try {
       setIsCheckingIn(true);
       await checkInAttendee(selectedAttendee.id!);
@@ -247,8 +228,9 @@ export default function CheckinPage() {
         selectedAttendee.assignedSeat,
         { name: selectedAttendee.name },
       );
-
+  
       setSelectedAttendee({ ...selectedAttendee, checkedIn: true });
+      setError(null);
     } catch (err) {
       console.error("[checkin] Check-in failed:", err);
       setError("Failed to check in. Please try again.");
