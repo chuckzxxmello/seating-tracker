@@ -237,69 +237,39 @@ export async function getSeatInfo(seatNumber: number): Promise<SeatInfo | null> 
 
 // Table operations
 export async function checkTableCapacity(
-  tableNumber: number,
-  isVIP: boolean,
-): Promise<{
-  current: number
-  max: number
-  available: number
-  isFull: boolean
-}> {
-  try {
-    ensureFirebaseInitialized()
-    const q = query(collection(firestore!, "attendees"), where("assignedSeat", "==", tableNumber))
-    const snapshot = await getDocs(q)
-
-    const maxCapacity = isVIP ? 30 : 10
-    const currentOccupancy = snapshot.size
-    const available = maxCapacity - currentOccupancy
-
-    return {
-      current: currentOccupancy,
-      max: maxCapacity,
-      available,
-      isFull: available <= 0,
-    }
-  } catch (error) {
-    console.error("[v0] Error checking table capacity:", error)
-    throw error
-  }
-}
-
-export async function assignSeatToAttendee(
-  attendeeId: string,
-  tableNumber: number,
-  isVIP: boolean,
-): Promise<void> {
-  try {
-    ensureFirebaseInitialized()
-    const capacity = await checkTableCapacity(tableNumber, isVIP)
-    if (capacity.isFull) {
-      throw new Error(
-        `Table ${tableNumber} is at full capacity (${capacity.max}/${capacity.max} seats occupied)`,
+    tableNumber: number,
+    isVIP: boolean,
+  ): Promise<{
+    current: number
+    max: number
+    available: number
+    isFull: boolean
+  }> {
+    try {
+      ensureFirebaseInitialized()
+      const q = query(
+        collection(firestore!, "attendees"),
+        where("assignedSeat", "==", tableNumber),
       )
+      const snapshot = await getDocs(q)
+  
+      const currentOccupancy = snapshot.size
+      const maxCapacity = Number.MAX_SAFE_INTEGER  // effectively unlimited
+      const available = maxCapacity - currentOccupancy
+  
+      return {
+        current: currentOccupancy,
+        max: maxCapacity,
+        available,
+        isFull: false, // 🔓 never full
+      }
+    } catch (error) {
+      console.error("[v0] Error checking table capacity:", error)
+      throw error
     }
-
-    const batch = writeBatch(firestore!)
-
-    const attendeeRef = doc(firestore!, "attendees", attendeeId)
-    batch.update(attendeeRef, {
-      table: tableNumber,
-      tableCapacity: isVIP ? 30 : 10,
-      updatedAt: Timestamp.now(),
-    })
-
-    await batch.commit()
-    console.log(
-      `[v0] Assigned attendee to table ${tableNumber}. Capacity: ${
-        capacity.current + 1
-      }/${capacity.max}`,
-    )
-  } catch (error) {
-    console.error("[v0] Error assigning seat:", error)
-    throw error
   }
-}
+
+
 
 // Audit logging
 export async function logAudit(
