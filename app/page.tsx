@@ -11,7 +11,6 @@ import {
   getAttendees,
   checkInAttendee,
   logAudit,
-  checkTableCapacity,
   type Attendee,
 } from "@/lib/firebase-service";
 import { useAuth } from "@/lib/auth-context";
