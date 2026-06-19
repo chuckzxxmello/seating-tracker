@@ -1,4 +1,4 @@
-<img src="https://readme-typing-svg.herokuapp.com?font=Anaheim&size=32&duration=3000&pause=2000&color=1F51FF&width=1000&lines=Legacy+Night;Seating+Tracker+and+Pathfinding+System" alt="Typing SVG" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Anaheim&size=32&duration=3000&pause=2000&color=1F51FF&width=1000&lines=Legacy+Night;Seating+Tracker+and+Seat+Pathfinding" alt="Typing SVG" />
 
 A web application for managing event check-ins and providing interactive venue navigation using custom pathfinding. It uses Firebase for real-time data synchronization.
 
